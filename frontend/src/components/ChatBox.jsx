@@ -28,15 +28,15 @@ const ChatBox = () => {
   };
 
   return (
-    <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 h-full flex flex-col">
       <h2 className="text-2xl font-bold mb-4 text-indigo-700 dark:text-indigo-300 tracking-tight flex items-center gap-2">
         <span>🤖</span> Ask Chanakya Anything
       </h2>
-      <div className="mb-4 max-h-60 overflow-y-auto space-y-2">
+      <div className="mb-4 overflow-y-auto space-y-2 flex-1">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <span className={`inline-block px-4 py-2 rounded-2xl shadow text-base max-w-xs break-words
-              ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>{msg.text}</span>
+            <span className={`inline-block px-4 py-2 rounded-2xl shadow text-base break-words
+              ${msg.sender === 'user' ? 'max-w-xs bg-blue-500 text-white' : 'max-w-xl bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>{msg.text}</span>
           </div>
         ))}
         <div ref={chatEndRef} />

@@ -15,12 +15,16 @@ function App() {
         <section id="dashboard" className="mb-8">
           <Dashboard />
         </section>
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div id="budget"><BudgetForm /></div>
-          <div id="mood"><MoodTracker /></div>
-        </section>
-        <section id="chat">
-          <ChatBox />
+        <section className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
+          {/* Left: Budget + Mood (stacked, 40%) */}
+          <div className="md:col-span-2 flex flex-col gap-8">
+            <div id="budget"><BudgetForm /></div>
+            <div id="mood"><MoodTracker /></div>
+          </div>
+          {/* Right: ChatBox (60%) */}
+          <div id="chat" className="md:col-span-3 flex flex-col">
+            <ChatBox />
+          </div>
         </section>
       </main>
     </div>
