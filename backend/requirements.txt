@@ -1,0 +1,6 @@
+flask
+flask-cors
+langchain
+langchain-community
+sqlalchemy
+python-dotenv

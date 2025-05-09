@@ -1,0 +1,67 @@
+{
+  "name": "postcss-normalize",
+  "version": "13.0.1",
+  "description": "Use the parts of normalize.css or sanitize.css you need from your browserslist",
+  "author": "Jonathan Neal <jonathantneal@hotmail.com>",
+  "license": "CC0-1.0",
+  "repository": "csstools/postcss-normalize",
+  "homepage": "https://github.com/csstools/postcss-normalize#readme",
+  "bugs": "https://github.com/csstools/postcss-normalize/issues",
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "exports": {
+    "require": "./index.cjs",
+    "import": "./index.mjs",
+    "default": "./index.mjs"
+  },
+  "files": [
+    "index.cjs",
+    "index.mjs"
+  ],
+  "scripts": {
+    "prepublishOnly": "npm test",
+    "build": "rollup --config .rollup.mjs --silent",
+    "test": "npm run build && node --test",
+    "test:rewrite-expects": "REWRITE_EXPECTS=true node --test"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "peerDependencies": {
+    "browserslist": ">= 4",
+    "postcss": ">= 8"
+  },
+  "dependencies": {
+    "@csstools/normalize.css": "12.1.1",
+    "postcss-browser-comments": "^6.0.1",
+    "sanitize.css": "13.0.0"
+  },
+  "devDependencies": {
+    "@csstools/postcss-tape": "^5.0.0",
+    "browserslist": "^4.16.5",
+    "postcss": "^8.4.31",
+    "postcss-import": "^16.0.0",
+    "rollup": "^4.21.2"
+  },
+  "babel": {
+    "plugins": [
+      "@babel/plugin-syntax-import-meta"
+    ],
+    "presets": [
+      [
+        "@babel/env",
+        {
+          "targets": "maintained node versions"
+        }
+      ]
+    ]
+  },
+  "keywords": [
+    "postcss",
+    "css",
+    "postcss-plugin",
+    "normalizes",
+    "browsers",
+    "fixes"
+  ]
+}
