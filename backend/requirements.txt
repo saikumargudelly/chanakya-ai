@@ -4,3 +4,5 @@ langchain
 langchain-community
 sqlalchemy
 python-dotenv
+alembic
+requests
