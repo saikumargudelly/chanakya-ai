@@ -28,26 +28,28 @@ const ChatBox = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 max-w-2xl mx-auto">
-      <div className="h-64 overflow-y-auto mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`mb-2 flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`px-3 py-2 rounded-lg max-w-xs ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'}`}>
-              {msg.text}
-            </div>
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+      <h2 className="text-2xl font-bold mb-4 text-indigo-700 dark:text-indigo-300 tracking-tight flex items-center gap-2">
+        <span>🤖</span> Ask Chanakya Anything
+      </h2>
+      <div className="mb-4 max-h-60 overflow-y-auto space-y-2">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <span className={`inline-block px-4 py-2 rounded-2xl shadow text-base max-w-xs break-words
+              ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>{msg.text}</span>
           </div>
         ))}
         <div ref={chatEndRef} />
       </div>
-      <form onSubmit={sendMessage} className="flex gap-2">
+      <form onSubmit={sendMessage} className="flex gap-2 mt-2">
         <input
-          className="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:outline-none"
+          className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-700 transition"
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Ask Chanakya anything..."
           disabled={loading}
         />
-        <button type="submit" disabled={loading || !input.trim()} className="px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50">{loading ? '...' : 'Send'}</button>
+        <button type="submit" disabled={loading || !input.trim()} className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold shadow hover:from-indigo-600 hover:to-blue-700 disabled:opacity-50 transition">{loading ? '...' : 'Send'}</button>
       </form>
     </div>
   );

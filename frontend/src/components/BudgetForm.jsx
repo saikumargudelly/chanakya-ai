@@ -18,12 +18,14 @@ const BudgetForm = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-      <h2 className="text-xl font-bold mb-2">Budget Tracker</h2>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+      <h2 className="text-2xl font-bold mb-4 text-green-700 dark:text-green-300 tracking-tight flex items-center gap-2">
+        <span>💸</span> Budget Tracker
+      </h2>
+      <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
         <input
           type="number"
-          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900"
+          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-700 transition"
           placeholder="Monthly Income"
           value={income}
           onChange={e => setIncome(e.target.value)}
@@ -31,15 +33,15 @@ const BudgetForm = () => {
         />
         <input
           type="text"
-          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900"
+          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-700 transition"
           placeholder="Expenses (comma-separated: rent, food, ... )"
           value={expenses}
           onChange={e => setExpenses(e.target.value)}
           required
         />
-        <button type="submit" className="px-4 py-2 rounded bg-green-600 text-white font-semibold hover:bg-green-700">Log Budget</button>
+        <button type="submit" className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow hover:from-green-600 hover:to-emerald-700 transition">Log Budget</button>
       </form>
-      {feedback && <div className="mt-2 text-sm text-green-500">{feedback}</div>}
+      {feedback && <div className="mt-3 text-sm font-medium text-green-600 dark:text-green-400 animate-pulse">{feedback}</div>}
     </div>
   );
 };
