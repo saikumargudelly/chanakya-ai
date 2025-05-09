@@ -28,6 +28,10 @@ class ChatHistory(Base):
     __tablename__ = 'chat_history'
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer)
-    message = Column(String)
-    response = Column(String)
+    role = Column(String)  # 'user' or 'assistant'
+    content = Column(String)  # message content
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # Deprecated fields for backward compatibility
+    message = Column(String)  # old user message
+    response = Column(String)  # old assistant response

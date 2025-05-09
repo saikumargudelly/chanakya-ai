@@ -71,12 +71,27 @@ def chat():
         "Authorization": f"Bearer {groq_api_key}",
         "Content-Type": "application/json"
     }
+    # Use the improved prompt template as systemPrompt
+    systemPrompt = PROMPT_TEMPLATE.strip()
+    # Reconstruct conversation history for this user
+    history_messages = []
+    if memory.buffer:
+        # memory.buffer is a string like: 'User: ...\nAI: ...\nUser: ...\nAI: ...'
+        lines = [line.strip() for line in memory.buffer.split('\n') if line.strip()]
+        for line in lines:
+            if line.lower().startswith('user:'):
+                history_messages.append({"role": "user", "content": line[5:].strip()})
+            elif line.lower().startswith('ai:') or line.lower().startswith('assistant:'):
+                # Accept either 'AI:' or 'Assistant:' as the assistant's role
+                content = line.split(':', 1)[1].strip()
+                history_messages.append({"role": "assistant", "content": content})
+    # Add the latest user message
+    history_messages.append({"role": "user", "content": message})
+    # Final messages list
+    messages = [{"role": "system", "content": systemPrompt}] + history_messages
     payload = {
         "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": "You are Chanakya, an ancient Indian strategist and financial advisor."},
-            {"role": "user", "content": prompt_text}
-        ],
+        "messages": messages,
         "temperature": 0.7
     }
     try:
@@ -86,6 +101,9 @@ def chat():
         if groq_resp.status_code != 200:
             return jsonify({"error": "Groq API error", "details": groq_resp.text}), 500
         groq_data = groq_resp.json()
+        # --- Detect user intent for analytics and response logic ---
+        from .intent_utils import detect_intent, trim_response_by_intent
+        intent = detect_intent(message)
         response = groq_data["choices"][0]["message"]["content"]
     except Exception as e:
         print("[ERROR] Exception during Groq API call:", str(e), flush=True)
