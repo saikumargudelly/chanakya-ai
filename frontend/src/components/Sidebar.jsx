@@ -8,7 +8,8 @@ const Sidebar = () => (
     </div>
     <nav className="flex flex-col gap-4">
       <a href="#dashboard" className="hover:bg-gray-800 rounded px-3 py-2 transition">Dashboard</a>
-      <a href="#budget" className="hover:bg-gray-800 rounded px-3 py-2 transition">Budget Tracker</a>
+      <a href="#budget-analytics" className="hover:bg-gray-800 rounded px-3 py-2 transition" onClick={e => { e.preventDefault(); window.location.hash = '#budget-analytics'; }}>Budget Tracker</a>
+      <a href="#financial-position" className="hover:bg-gray-800 rounded px-3 py-2 transition">Financial Position</a>
       <a href="#mood" className="hover:bg-gray-800 rounded px-3 py-2 transition">Mood Tracker</a>
       <a href="#chat" className="hover:bg-gray-800 rounded px-3 py-2 transition">Ask Chanakya</a>
       <a href="#goal-tracker" className="hover:bg-gray-800 rounded px-3 py-2 transition">Goal Tracker</a>

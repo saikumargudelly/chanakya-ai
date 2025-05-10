@@ -30,27 +30,44 @@ def budget():
 
     db = SessionLocal()
     try:
-        budget_entry = Budget(
-            user_id=user_id if isinstance(user_id, int) else None,
-            income=income,
-            expenses=expenses,
-            timestamp=datetime.datetime.utcnow()
+        # Upsert logic: find record for user & current month
+        now = datetime.datetime.utcnow()
+        month_start = datetime.datetime(now.year, now.month, 1)
+        next_month = datetime.datetime(now.year + (now.month // 12), ((now.month % 12) + 1), 1)
+        query = db.query(Budget).filter(
+            Budget.user_id == (user_id if isinstance(user_id, int) else None),
+            Budget.timestamp >= month_start,
+            Budget.timestamp < next_month
         )
-        db.add(budget_entry)
-        db.commit()
+        existing = query.first()
+        if existing:
+            # Overwrite income and expenses for edit mode
+            existing.income = income
+            existing.expenses = expenses
+            existing.timestamp = now
+            db.commit()
+        else:
+            budget_entry = Budget(
+                user_id=user_id if isinstance(user_id, int) else None,
+                income=income,
+                expenses=expenses,
+                timestamp=now
+            )
+            db.add(budget_entry)
+            db.commit()
     finally:
         db.close()
 
-    # Return last 5 budgets for dashboard
+    # Return all budgets for dashboard/analytics
     db = SessionLocal()
     try:
-        budgets = db.query(Budget).filter(Budget.user_id == (user_id if isinstance(user_id, int) else None)).order_by(Budget.timestamp.desc()).limit(5).all()
+        budgets = db.query(Budget).filter(Budget.user_id == (user_id if isinstance(user_id, int) else None)).order_by(Budget.timestamp.asc()).all()
         budget_history = [
             {
                 "income": b.income,
                 "expenses": b.expenses,
                 "timestamp": b.timestamp.isoformat()
-            } for b in reversed(budgets)
+            } for b in budgets
         ]
     finally:
         db.close()
@@ -62,3 +79,22 @@ def budget():
         "advice": advice,
         "history": budget_history
     })
+
+# GET endpoint to fetch all budgets for a user
+@budget_bp.route('', methods=['GET'])
+def get_budgets():
+    user_id = request.args.get('user_id', 'default')
+    db = SessionLocal()
+    try:
+        budgets = db.query(Budget).filter(Budget.user_id == (user_id if isinstance(user_id, int) else None)).order_by(Budget.timestamp.asc()).all()
+        budget_history = [
+            {
+                "income": b.income,
+                "expenses": b.expenses,
+                "timestamp": b.timestamp.isoformat()
+            } for b in budgets
+        ]
+    finally:
+        db.close()
+    return jsonify({"budgets": budget_history})
+
