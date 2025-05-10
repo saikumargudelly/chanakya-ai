@@ -1,5 +1,169 @@
-/* App.css - minimal placeholder */
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
+}
+
+/* Mood Tracker: expand horizontally, compress vertically */
+.mood-tracker-expanded {
+  width: 100% !important;
+  min-width: 320px;
+  max-width: 100%;
+  min-height: 80px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 0.5rem;
+  box-sizing: border-box;
+  background: #232b3a;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  border: 1px solid #2d3748;
+}
+
+/* Goal List Styles */
+.goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+.goal-item {
+  background: #181e2a;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid #232b3a;
+  color: #e8eaf6;
+  font-size: 1rem;
+}
+
+.dark-input {
+  width: 100%;
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid #3a4256;
+  background: #232b3a;
+  color: #e8eaf6;
+  margin-top: 0.3rem;
+  font-size: 1rem;
+  transition: border 0.2s;
+}
+.dark-input:focus {
+  border: 1.5px solid #4f8cff;
+  outline: none;
+}
+
+.goal-item h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.goal-item progress {
+  width: 100%;
+  height: 8px;
+  margin: 0.5rem 0;
+  accent-color: #4f8cff;
+}
+.goal-item input[type="number"] {
+  width: 90px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #3a4256;
+  background: #232b3a;
+  color: #e8eaf6;
+  margin-right: 0.5rem;
+}
+.goal-item button {
+  background: #4f8cff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.25rem 0.75rem;
+  margin-right: 0.5rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.goal-item button:hover {
+  background: #2563eb;
+}
+
+.milestone-msg {
+  background: #232b3a;
+  color: #ffe082;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+  animation: pop-in 0.4s;
+}
+@keyframes pop-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  80% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Modal Styles for GoalModal */
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  background: #232b3a;
+  color: #e8eaf6;
+  border-radius: 14px;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.25);
+  min-width: 320px;
+  max-width: 95vw;
+}
+.modal h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.modal label {
+  display: flex;
+  flex-direction: column;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.modal input[type="text"], .modal input[type="number"] {
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid #3a4256;
+  background: #181e2a;
+  color: #e8eaf6;
+  margin-top: 0.3rem;
+}
+.modal button {
+  background: #4f8cff;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 0.4rem 1.1rem;
+  margin-right: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.modal button[type="button"] {
+  background: #232b3a;
+  color: #e8eaf6;
+  border: 1px solid #3a4256;
+}
+.modal button:hover {
+  background: #2563eb;
+}
+.modal button[type="button"]:hover {
+  background: #181e2a;
 }
