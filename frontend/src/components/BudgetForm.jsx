@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import NotificationToast from './NotificationToast';
 
+import { useAuth } from './AuthContext';
+
 const BudgetForm = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -13,6 +15,36 @@ const BudgetForm = () => {
   const [aiResponse, setAiResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { token } = useAuth();
+
+  // Fetch and pre-populate latest budget
+  React.useEffect(() => {
+    async function fetchLatestBudget() {
+      try {
+        const res = await axios.get('http://localhost:5001/budget', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const budgets = res.data.budgets || [];
+        if (budgets.length > 0) {
+          // Find the latest budget by timestamp
+          const latest = budgets.reduce((a, b) => new Date(a.timestamp) > new Date(b.timestamp) ? a : b);
+          setIncome(latest.income || '');
+          // If expenses is an object, convert to + separated string for the input
+          if (latest.expenses && typeof latest.expenses === 'object') {
+            const expenseVals = Object.values(latest.expenses).filter(v => v !== '').map(Number).filter(v => !isNaN(v));
+            setExpenses(expenseVals.join('+'));
+          } else if (typeof latest.expenses === 'string') {
+            setExpenses(latest.expenses);
+          } else {
+            setExpenses('');
+          }
+        }
+      } catch (err) {
+        // Ignore fetch errors for now
+      }
+    }
+    if (token) fetchLatestBudget();
+  }, [token]);
 
   // Safe arithmetic parser for simple +, - expressions
   function safeSum(expr) {

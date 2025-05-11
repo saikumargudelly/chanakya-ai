@@ -12,16 +12,23 @@ import GoalItem from './components/GoalItem';
 
 import GoalModal from './components/GoalModal';
 import { GoalProvider, useGoals } from './context/GoalContext';
+import { AuthProvider, useAuth } from './components/AuthContext';
+import Login from './components/Login';
+import Signup from './components/Signup';
 
 function App() {
   return (
-    <GoalProvider>
-      <AppContent />
-    </GoalProvider>
+    <AuthProvider>
+      <GoalProvider>
+        <AppContent />
+      </GoalProvider>
+    </AuthProvider>
   );
 }
 
 function AppContent() {
+  const { user } = useAuth();
+  const [showSignup, setShowSignup] = useState(false);
   const { goals } = useGoals();
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [showGoalTracker, setShowGoalTracker] = useState(window.location.hash.startsWith('#goal-tracker'));
@@ -38,10 +45,19 @@ function AppContent() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  if (!user) {
+    return showSignup ? (
+      <Signup onLoginClick={() => setShowSignup(false)} />
+    ) : (
+      <Login onSignupClick={() => setShowSignup(true)} />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 flex">
       <Sidebar />
       <main className="flex-1 ml-56 p-8 bg-gray-900 text-gray-100 min-h-screen">
+        <button className="absolute top-4 right-8 bg-red-600 text-white px-4 py-1 rounded" onClick={() => { if(window.confirm('Log out?')) { localStorage.removeItem('token'); window.location.reload(); } }}>Logout</button>
         {window.location.hash === '#budget-analytics' ? (
           <BudgetAnalytics />
         ) : showGoalTracker ? (

@@ -1,19 +1,15 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 import datetime
-import os
-
+from utils.security import jwt_required
 from db.models import Budget
+from db.session import engine, SessionLocal
 
 budget_bp = Blueprint('budget', __name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///chanakya.db")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 @budget_bp.route('', methods=['POST'])
-def budget():
+@jwt_required
+def budget(user_id):
     # Clean up old records for this month with user_id=None or empty expenses
     db_cleanup = SessionLocal()
     try:
@@ -29,11 +25,6 @@ def budget():
     finally:
         db_cleanup.close()
     data = request.json
-    user_id = data.get('user_id', 'default')
-    try:
-        user_id = int(user_id)
-    except Exception:
-        user_id = None
     income = data.get('income', 0)
     import json
     expenses = data.get('expenses', {})
@@ -110,12 +101,8 @@ def budget():
 
 # GET endpoint to fetch all budgets for a user
 @budget_bp.route('', methods=['GET'])
-def get_budgets():
-    user_id = request.args.get('user_id', 'default')
-    try:
-        user_id = int(user_id)
-    except Exception:
-        user_id = None
+@jwt_required
+def get_budgets(user_id):
     db = SessionLocal()
     try:
         budgets = db.query(Budget).filter(Budget.user_id == user_id).order_by(Budget.timestamp.asc()).all()

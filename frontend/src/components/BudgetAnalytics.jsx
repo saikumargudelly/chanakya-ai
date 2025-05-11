@@ -28,7 +28,10 @@ export default function BudgetAnalytics() {
     async function fetchBudgets() {
       setLoading(true);
       try {
-        const res = await axios.get('http://localhost:5001/budget', { params: { user_id: 1 } });
+        const { token } = useAuth();
+const res = await axios.get('http://localhost:5001/budget', {
+  headers: { Authorization: `Bearer ${token}` }
+});
         setBudgets(res.data.budgets || []);
       } catch {
         setBudgets([]);

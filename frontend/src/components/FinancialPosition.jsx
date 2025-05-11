@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import FinancialPieChart from './FinancialPieChart';
+import { useAuth } from './AuthContext';
 
 const defaultCategories = [
   { key: 'rent', label: 'Rent', value: '' },
@@ -18,12 +19,15 @@ export default function FinancialPosition({ onClose }) {
   const [categories, setCategories] = useState(defaultCategories);
   const [feedback, setFeedback] = useState('');
   const [showResult, setShowResult] = useState(false);
+  const { token } = useAuth();
 
   // Refetch data every time the component is focused (for SPA navigation)
   useEffect(() => {
     async function fetchCurrentMonth() {
       try {
-        const res = await axios.get('http://localhost:5001/budget', { params: { user_id: 1 } });
+        const res = await axios.get('http://localhost:5001/budget', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         const budgets = res.data.budgets || [];
         const now = new Date();
         const currentMonth = now.getMonth();
@@ -53,7 +57,7 @@ export default function FinancialPosition({ onClose }) {
     const onFocus = () => fetchCurrentMonth();
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, []);
+  }, [token]);
 
   function handleCategoryChange(idx, value) {
     setCategories(categories => categories.map((cat, i) => i === idx ? { ...cat, value } : cat));
@@ -107,9 +111,10 @@ export default function FinancialPosition({ onClose }) {
     console.log('Submitting to backend:', { income: totalIncome, expenses: catObj });
     try {
       await axios.post('http://localhost:5001/budget', {
-        user_id: 1, // static for now
         income: totalIncome,
         expenses: catObj
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       setFeedback(prev => prev + ' (Saved to analytics!)');
     } catch (err) {
