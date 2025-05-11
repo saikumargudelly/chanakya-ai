@@ -3,11 +3,17 @@
 A full-stack, modular web application that provides intelligent financial guidance and wellness tracking through a modern chat interface.
 
 ## Features
+- User registration (email, first/last name, mobile, password)
+- Secure login and JWT authentication
+- Fetch and update user profile (first/last name, email, mobile, address)
+- Password reset (upsert password via email)
 - Track income and expenses
 - Log mood (emotional wellness)
 - Personalized budgeting advice (GPT-4 or Groq API)
 - Chat memory and natural conversation
 - Mood-aware prompts
+- Robust error handling and validation
+- Modern, responsive frontend UI with improved UX
 - Docker-ready and environment-based config
 
 ## Tech Stack
@@ -58,6 +64,16 @@ A full-stack, modular web application that provides intelligent financial guidan
 cd backend
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+```
+
+#### Main Endpoints
+- `POST /auth/register` – Register user (fields: email, password, first_name, last_name, mobile_number)
+- `POST /auth/login` – Login with email and password
+- `GET /auth/profile` – Get user profile (JWT required)
+- `PUT /auth/profile` – Update user profile (JWT required)
+- `POST /auth/reset_password` – Reset password by email
+
+All endpoints return JSON and handle errors (e.g., duplicate email, missing fields).
 # Run DB migrations (if needed)
 alembic upgrade head
 flask run  # or python app.py
@@ -69,6 +85,14 @@ cd frontend
 npm install
 npm start
 ```
+
+#### Frontend Features
+- Signup form with email, first/last name, mobile, password
+- Login form with password reset modal
+- Profile page with fetch/update logic and validation
+- Error and success messaging for all user actions
+- Loading skeletons and modern UI/UX
+
 
 ### 3. Environment Variables
 Create a `.env` file in the project root:

@@ -6,3 +6,5 @@ sqlalchemy
 python-dotenv
 alembic
 requests
+werkzeug
+PyJWT

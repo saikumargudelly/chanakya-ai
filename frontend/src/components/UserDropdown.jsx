@@ -13,7 +13,7 @@ export default function UserDropdown({ onProfileClick }) {
         aria-haspopup="true"
         aria-expanded={open}
       >
-        <span className="truncate max-w-[120px]" onClick={onProfileClick} style={{cursor:'pointer',textDecoration:'underline'}}>{user.username || 'User'}</span>
+        <span className="truncate max-w-[120px]">{user.username || 'User'}</span>
         <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
       </button>
       {open && (

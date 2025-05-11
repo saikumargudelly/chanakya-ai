@@ -15,10 +15,10 @@ export function AuthProvider({ children }) {
     }
   }, [token]);
 
-  const login = (token, userId) => {
+  const login = (token, userId, username, email) => {
     setToken(token);
     localStorage.setItem('token', token);
-    setUser({ token, userId });
+    setUser({ token, userId, username, email });
   };
 
   const logout = () => {
