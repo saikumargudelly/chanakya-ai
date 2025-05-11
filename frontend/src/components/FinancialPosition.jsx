@@ -28,10 +28,15 @@ export default function FinancialPosition({ onClose }) {
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
-        const thisMonth = budgets.find(b => {
+        const thisMonthBudgets = budgets.filter(b => {
           const d = new Date(b.timestamp);
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
+        const thisMonth = thisMonthBudgets.length
+          ? thisMonthBudgets.reduce((latest, b) =>
+              new Date(b.timestamp) > new Date(latest.timestamp) ? b : latest
+            )
+          : null;
         if (thisMonth) {
           setIncome(thisMonth.income);
           const updatedCategories = defaultCategories.map(cat => ({ ...cat, value: thisMonth.expenses?.[cat.key] ?? '' }));

@@ -63,7 +63,7 @@ def budget():
         month_start = datetime.datetime(now.year, now.month, 1)
         next_month = datetime.datetime(now.year + (now.month // 12), ((now.month % 12) + 1), 1)
         query = db.query(Budget).filter(
-            Budget.user_id == (user_id if isinstance(user_id, int) else None),
+            Budget.user_id == user_id,
             Budget.timestamp >= month_start,
             Budget.timestamp < next_month
         )
@@ -89,7 +89,7 @@ def budget():
     # Return all budgets for dashboard/analytics
     db = SessionLocal()
     try:
-        budgets = db.query(Budget).filter(Budget.user_id == (user_id if isinstance(user_id, int) else None)).order_by(Budget.timestamp.asc()).all()
+        budgets = db.query(Budget).filter(Budget.user_id == user_id).order_by(Budget.timestamp.asc()).all()
         budget_history = [
             {
                 "income": b.income,
