@@ -19,6 +19,7 @@ export default function FinancialPosition({ onClose }) {
   const [feedback, setFeedback] = useState('');
   const [showResult, setShowResult] = useState(false);
 
+  // Refetch data every time the component is focused (for SPA navigation)
   useEffect(() => {
     async function fetchCurrentMonth() {
       try {
@@ -33,21 +34,28 @@ export default function FinancialPosition({ onClose }) {
         });
         if (thisMonth) {
           setIncome(thisMonth.income);
-          setCategories(defaultCategories.map(cat => ({ ...cat, value: thisMonth.expenses?.[cat.key] ?? '' })));
+          const updatedCategories = defaultCategories.map(cat => ({ ...cat, value: thisMonth.expenses?.[cat.key] ?? '' }));
+          setCategories(updatedCategories);
           setShowResult(true);
+          // Show suggestions and pie chart immediately
+          const feedbackText = getRuleFeedback(Number(thisMonth.income) || 0, updatedCategories);
+          setFeedback(feedbackText);
         }
       } catch {}
     }
     fetchCurrentMonth();
+    // Listen for focus events to refetch data
+    const onFocus = () => fetchCurrentMonth();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   function handleCategoryChange(idx, value) {
     setCategories(categories => categories.map((cat, i) => i === idx ? { ...cat, value } : cat));
   }
 
-  async function evaluateRules() {
-    // Only use non-empty values for calculations
-    const totalIncome = Number(income) || 0;
+  // Refactored: separate rule evaluation logic
+  function getRuleFeedback(totalIncome, categories) {
     const filteredCategories = categories.filter(c => c.value !== '' && !isNaN(Number(c.value)));
     const catObj = Object.fromEntries(filteredCategories.map(c => [c.key, Number(c.value)]));
     const totalExpenses = filteredCategories.filter(c => c.key !== 'savings').reduce((sum, c) => sum + Number(c.value), 0);
@@ -79,11 +87,19 @@ export default function FinancialPosition({ onClose }) {
         result.push('You are running a deficit. Review your spending.');
       }
     }
+    return result.join(' ');
+  }
 
-    setFeedback(result.join(' '));
+  async function evaluateRules() {
+    const totalIncome = Number(income) || 0;
+    const feedbackText = getRuleFeedback(totalIncome, categories);
+    setFeedback(feedbackText);
     setShowResult(true);
 
     // Send details to backend for analytics
+    // Send ALL categories, not just filled ones
+    const catObj = Object.fromEntries(categories.map(c => [c.key, c.value === '' ? 0 : Number(c.value)]));
+    console.log('Submitting to backend:', { income: totalIncome, expenses: catObj });
     try {
       await axios.post('http://localhost:5001/budget', {
         user_id: 1, // static for now

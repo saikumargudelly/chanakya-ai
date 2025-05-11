@@ -129,17 +129,13 @@ export default function BudgetAnalytics() {
         <div className="text-center text-lg text-blue-500">Loading analytics...</div>
       ) : (
         <>
-          <div className="mb-10">
-            <h3 className="text-lg font-semibold mb-3">Current Month Breakdown</h3>
-            {hasPieData ? (
-              <Pie data={pieData} />
-            ) : (
-              <div className="text-gray-400 italic text-center py-8">No expense data available for the current month. Enter some expenses to see your breakdown!</div>
-            )}
-          </div>
           <div>
             <h3 className="text-lg font-semibold mb-3">Trends Over Time</h3>
-            <Line data={lineData} />
+            {filtered.length > 0 ? (
+              <Line data={lineData} />
+            ) : (
+              <div className="text-gray-400 italic text-center py-8">No historical budget data available for this period.</div>
+            )}
           </div>
         </>
       )}
