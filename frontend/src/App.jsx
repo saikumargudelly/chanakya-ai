@@ -59,7 +59,7 @@ function AppContent() {
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }, 0);
-  }, [showDashboard, showGoalTracker, showBudgetAnalytics, showFinancialPosition]);
+  }, [showDashboard, showGoalTracker, showBudgetAnalytics, showFinancialPosition, user]);
 
   // Top bar with title and user/profile controls
   const TopBar = (
