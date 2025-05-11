@@ -15,6 +15,7 @@ import { GoalProvider, useGoals } from './context/GoalContext';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import Home from './components/Home';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ import Profile from './components/Profile';
 function AppContent() {
   const { user } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const { goals } = useGoals();
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [showDashboard, setShowDashboard] = useState(!window.location.hash || window.location.hash === '#dashboard');
@@ -68,8 +70,8 @@ function AppContent() {
           <UserDropdown onProfileClick={() => setShowProfile(true)} />
         ) : (
           <>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded mr-2" onClick={() => setShowSignup(false)}>Login</button>
-            <button className="bg-gray-700 text-white px-4 py-2 rounded" onClick={() => setShowSignup(true)}>Sign Up</button>
+            <button className="bg-blue-600 text-white px-4 py-2 rounded mr-2" onClick={() => { setShowLogin(true); setShowSignup(false); }}>Login</button>
+            <button className="bg-gray-700 text-white px-4 py-2 rounded" onClick={() => { setShowSignup(true); setShowLogin(false); }}>Sign Up</button>
           </>
         )}
       </div>
@@ -77,18 +79,22 @@ function AppContent() {
   );
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        {TopBar}
-        <div className="flex-1 flex items-center justify-center pt-24">
-          {showSignup ? (
-            <Signup onLoginClick={() => setShowSignup(false)} />
-          ) : (
-            <Login onSignupClick={() => setShowSignup(true)} />
-          )}
+    if (showLogin || showSignup) {
+      return (
+        <div className="min-h-screen bg-gray-900 flex flex-col">
+          {TopBar}
+          <div className="flex-1 flex items-center justify-center pt-24">
+            {showSignup ? (
+              <Signup onLoginClick={() => { setShowSignup(false); setShowLogin(true); }} />
+            ) : (
+              <Login onSignupClick={() => { setShowSignup(true); setShowLogin(false); }} />
+            )}
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+    // Show Home page by default
+    return <Home onLogin={() => setShowLogin(true)} />;
   }
 
   return (
