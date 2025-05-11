@@ -26,47 +26,87 @@ function App() {
   );
 }
 
+import UserDropdown from './components/UserDropdown';
+import Profile from './components/Profile';
+
 function AppContent() {
   const { user } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
   const { goals } = useGoals();
   const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(!window.location.hash || window.location.hash === '#dashboard');
   const [showGoalTracker, setShowGoalTracker] = useState(window.location.hash.startsWith('#goal-tracker'));
   const [showFinancialPosition, setShowFinancialPosition] = useState(window.location.hash.startsWith('#financial-position'));
   const [showBudgetAnalytics, setShowBudgetAnalytics] = useState(window.location.hash.startsWith('#budget-analytics'));
+  const [showProfile, setShowProfile] = useState(false);
 
   React.useEffect(() => {
     const onHashChange = () => {
-      setShowGoalTracker(window.location.hash.startsWith('#goal-tracker'));
-      setShowFinancialPosition(window.location.hash.startsWith('#financial-position'));
-      setShowBudgetAnalytics(window.location.hash.startsWith('#budget-analytics'));
+      const hash = window.location.hash;
+      setShowDashboard(!hash || hash === '#dashboard');
+      setShowGoalTracker(hash.startsWith('#goal-tracker'));
+      setShowFinancialPosition(hash.startsWith('#financial-position'));
+      setShowBudgetAnalytics(hash.startsWith('#budget-analytics'));
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  // Always scroll to top after main view changes (with setTimeout for robust effect)
+  React.useEffect(() => {
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }, 0);
+  }, [showDashboard, showGoalTracker, showBudgetAnalytics, showFinancialPosition]);
+
+  // Top bar with title and user/profile controls
+  const TopBar = (
+    <header className="w-full flex items-center justify-between px-8 py-4 bg-gray-800 shadow fixed top-0 left-0 z-50" style={{height:'64px'}}>
+      <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Chanakya – AI Financial Wellness Coach</h1>
+      <div>
+        {user ? (
+          <UserDropdown onProfileClick={() => setShowProfile(true)} />
+        ) : (
+          <>
+            <button className="bg-blue-600 text-white px-4 py-2 rounded mr-2" onClick={() => setShowSignup(false)}>Login</button>
+            <button className="bg-gray-700 text-white px-4 py-2 rounded" onClick={() => setShowSignup(true)}>Sign Up</button>
+          </>
+        )}
+      </div>
+    </header>
+  );
+
   if (!user) {
-    return showSignup ? (
-      <Signup onLoginClick={() => setShowSignup(false)} />
-    ) : (
-      <Login onSignupClick={() => setShowSignup(true)} />
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col">
+        {TopBar}
+        <div className="flex-1 flex items-center justify-center pt-24">
+          {showSignup ? (
+            <Signup onLoginClick={() => setShowSignup(false)} />
+          ) : (
+            <Login onSignupClick={() => setShowSignup(true)} />
+          )}
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
+      {TopBar}
+      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
       <Sidebar />
-      <main className="flex-1 ml-56 p-8 bg-gray-900 text-gray-100 min-h-screen">
-        <button className="absolute top-4 right-8 bg-red-600 text-white px-4 py-1 rounded" onClick={() => { if(window.confirm('Log out?')) { localStorage.removeItem('token'); window.location.reload(); } }}>Logout</button>
-        {window.location.hash === '#budget-analytics' ? (
+      <main className="flex-1 ml-56 p-8 pt-32 bg-gray-900 text-gray-100 min-h-screen">
+        {/* UserDropdown is now in TopBar */}
+        {showBudgetAnalytics ? (
           <BudgetAnalytics />
         ) : showGoalTracker ? (
           <GoalTracker />
         ) : showFinancialPosition ? (
           <FinancialPosition />
-        ) : (
+        ) : showDashboard ? (
           <>
-            <h1 className="text-3xl font-bold mb-8 mt-2">Chanakya – AI Financial Wellness Coach</h1>
+            {/* Remove duplicate dashboard title if present */}
             <section id="dashboard" className="mb-8">
               <Dashboard />
             </section>
@@ -122,7 +162,7 @@ function AppContent() {
               </div>
             </section>
           </>
-        )}
+        ) : null}
       </main>
     </div>
   );
