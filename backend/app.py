@@ -14,11 +14,13 @@ from routes.chat import chat_bp
 from routes.budget import budget_bp
 from routes.mood import mood_bp
 from routes.auth import bp as auth_bp
+from routes.mood_session import mood_session_bp
 
 app.register_blueprint(chat_bp, url_prefix='/chat')
 app.register_blueprint(budget_bp, url_prefix='/budget')
 app.register_blueprint(mood_bp, url_prefix='/mood')
 app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(mood_session_bp, url_prefix='/mood-session')
 
 @app.route('/')
 def index():

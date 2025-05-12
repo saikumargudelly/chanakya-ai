@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { getPermaTipConversation } from '../services/permaChat';
+import { fetchMoodSessions, saveMoodSession, fetchRecentMoodSessions } from '../services/moodSession';
+import { useAuth } from './AuthContext';
 
 // Pool of PERMA questions for daily randomization
 const PERMA_QUESTIONS = [
@@ -117,6 +119,8 @@ function getTodaysQuestions(questionPool, min = 5, max = 8) {
 const PERMA_PILLARS = ['Positive Emotion', 'Engagement', 'Relationships', 'Meaning', 'Accomplishment'];
 
 const MoodTracker = () => {
+  const { user } = useAuth();
+  const user_id = user?.userId ? Number(user.userId) : user?.id ? Number(user.id) : user?.user_id ? Number(user.user_id) : 'default';
   // Dynamically pick 5-8 questions per day
   const todaysQuestions = useMemo(() => getTodaysQuestions(PERMA_QUESTIONS, 5, 8), []);
   const [step, setStep] = useState(0);
@@ -134,12 +138,39 @@ const MoodTracker = () => {
   const canGoLeft = visibleStart > 0;
   const canGoRight = visibleStart + visibleCount < todaysQuestions.length;
   const visibleQuestions = todaysQuestions.slice(visibleStart, visibleStart + visibleCount);
+  // Session limiting state
+  const [sessionsToday, setSessionsToday] = useState(0);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchSessions() {
+      setSessionsLoading(true);
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      try {
+        const sessions = await fetchMoodSessions(typeof user_id === 'string' ? Number(user_id) : user_id, dateStr);
+        setSessionsToday(sessions.length);
+      } catch {
+        setSessionsToday(0);
+      }
+      setSessionsLoading(false);
+    }
+    if (user_id) fetchSessions();
+  }, [user_id]);
 
   const handleAnswer = (idx, optionValue) => {
     const updated = [...answers];
     updated[idx] = optionValue;
     setAnswers(updated);
+    // Auto-advance to next question if not last
+    if (idx < todaysQuestions.length - 1) {
+      setStep(idx + 1);
+    }
   };
+
 
   const canProceed = answers[step] !== null;
   const allAnswered = answers.every(a => a !== null);
@@ -150,9 +181,31 @@ const MoodTracker = () => {
   const handleBack = () => {
     if (step > 0) setStep(step - 1);
   };
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setShowAnalysis(true);
+    // Save session to backend
+    const { avgScores, strong, weak } = analyzePERMA();
+    const summary = `Strongest pillar: ${strong}, weakest pillar: ${weak}. Answers: ${JSON.stringify(answers)}. Questions: ${JSON.stringify(todaysQuestions.map(q => q.question))}`;
+    try {
+      await saveMoodSession({
+        user_id: typeof user_id === 'string' ? Number(user_id) : user_id,
+        perma_scores: avgScores,
+        answers,
+        summary,
+      });
+      // Refetch session count for today
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      const sessions = await fetchMoodSessions(typeof user_id === 'string' ? Number(user_id) : user_id, dateStr);
+      setSessionsToday(sessions.length);
+    } catch (e) {
+      // Optionally show error
+    }
   };
+
   function resetInteraction() {
     setShowTip(false); setShowJournal(false); setShowGoal(false);
   }
@@ -233,6 +286,12 @@ const MoodTracker = () => {
   }
 
   // UI
+  if (sessionsLoading) {
+    return <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center text-lg">Loading your mood sessions...</div>;
+  }
+  if (sessionsToday > 2) {
+    return <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center text-lg font-semibold text-blue-700 dark:text-blue-300">You’ve completed your 2 Mood Check-ins for today! Come back tomorrow for more insights. 🌞</div>;
+  }
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto">
       <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300 tracking-tight flex items-center gap-2 mb-3">
@@ -259,7 +318,12 @@ const MoodTracker = () => {
                 const perma_scores = avgScores;
                 const summary = `Strongest pillar: ${strong}, weakest pillar: ${weak}. Answers: ${JSON.stringify(answers)}. Questions: ${JSON.stringify(todaysQuestions.map(q => q.question))}`;
                 const userMessage = '';
-                const history = '';
+                // Fetch recent sessions for richer context
+                let history = '';
+                try {
+                  const recentSessions = await fetchRecentMoodSessions(user_id, 5);
+                  history = recentSessions.map((s, i) => `Session ${recentSessions.length-i}:\nPERMA: ${JSON.stringify(s.perma_scores)}\nSummary: ${s.summary}\n`).join('\n');
+                } catch {}
                 const aiResp = await getPermaTipConversation({ perma_scores, summary, userMessage, history });
                 let tipText = aiResp.response;
                 // Robustly parse if tipText is a stringified JSON or object

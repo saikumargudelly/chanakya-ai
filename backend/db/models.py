@@ -40,3 +40,12 @@ class ChatHistory(Base):
     # Deprecated fields for backward compatibility
     message = Column(String)  # old user message
     response = Column(String)  # old assistant response
+
+class MoodSession(Base):
+    __tablename__ = 'mood_sessions'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    perma_scores = Column(JSON)      # e.g., {"P": 3, "E": 2, ...}
+    answers = Column(JSON)           # raw answers to questions
+    summary = Column(String)         # summary string for analytics
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
