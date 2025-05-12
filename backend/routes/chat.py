@@ -10,7 +10,7 @@ import datetime
 
 from db.models import ChatHistory
 from utils.helpers import format_expenses
-from chanakya_chain.prompts import PROMPT_TEMPLATE
+from chanakya_chain.prompts import GENERAL_PROMPT_TEMPLATE, PERMA_PROMPT_TEMPLATE
 
 chat_bp = Blueprint('chat', __name__)
 
@@ -49,11 +49,11 @@ def chat():
     memory = get_user_memory(user_id)
     prompt = PromptTemplate(
         input_variables=["income", "expenses", "mood", "history", "input"],
-        template=PROMPT_TEMPLATE
+        template=GENERAL_PROMPT_TEMPLATE
     )
     # Format expenses for prompt
     formatted_expenses = format_expenses(expenses)
-    prompt_text = PROMPT_TEMPLATE.format(
+    prompt_text = GENERAL_PROMPT_TEMPLATE.format(
         income=income,
         expenses=formatted_expenses,
         mood=mood,
