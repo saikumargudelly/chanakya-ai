@@ -1,27 +1,31 @@
 // Abstraction layer for goal storage. Start with localStorage, easily swappable for Firebase later.
-const STORAGE_KEY = 'user_goals';
+const getStorageKey = (userId) => `user_${userId}_goals`;
 
 export const goalService = {
-  getGoals: async () => {
-    const data = localStorage.getItem(STORAGE_KEY);
+  getGoals: async (userId) => {
+    if (!userId) return [];
+    const data = localStorage.getItem(getStorageKey(userId));
     return data ? JSON.parse(data) : [];
   },
-  addGoal: async (goal) => {
-    const goals = await goalService.getGoals();
+  addGoal: async (userId, goal) => {
+    if (!userId) throw new Error('User ID is required');
+    const goals = await goalService.getGoals(userId);
     goals.push(goal);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(goals));
     return goal;
   },
-  updateGoal: async (updatedGoal) => {
-    let goals = await goalService.getGoals();
+  updateGoal: async (userId, updatedGoal) => {
+    if (!userId) throw new Error('User ID is required');
+    let goals = await goalService.getGoals(userId);
     goals = goals.map(g => g.id === updatedGoal.id ? updatedGoal : g);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(goals));
     return updatedGoal;
   },
-  deleteGoal: async (goalId) => {
-    let goals = await goalService.getGoals();
+  deleteGoal: async (userId, goalId) => {
+    if (!userId) throw new Error('User ID is required');
+    let goals = await goalService.getGoals(userId);
     goals = goals.filter(g => g.id !== goalId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(goals));
   }
 };
 
