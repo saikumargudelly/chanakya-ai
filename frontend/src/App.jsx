@@ -156,9 +156,8 @@ function AppContent() {
             </>
           } />
           <Route path="/mood" element={
-            <div className="flex-1 flex flex-col gap-8">
+            <div className="flex-1">
               <MoodTracker />
-              <ChatBox />
             </div>
           } />
           <Route path="/budget-analytics" element={<BudgetAnalytics />} />
@@ -167,7 +166,7 @@ function AppContent() {
         </Routes>
         </main>
       </div>
-      <RukminiChat />
+      <RukminiChat defaultGender={user?.gender || 'neutral'} />
     </>
   );
 }

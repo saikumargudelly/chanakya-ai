@@ -69,6 +69,11 @@ const ChatDrawer: React.FC = () => {
     userContext: { mood },
   } = useChat();
 
+  // Debug log when assistant name or gender changes
+  useEffect(() => {
+    console.log('ChatDrawer - Assistant:', { assistantName, assistantGender });
+  }, [assistantName, assistantGender]);
+
   const [inputValue, setInputValue] = React.useState('');
   const [isMinimized, setIsMinimized] = React.useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -214,7 +219,8 @@ const ChatDrawer: React.FC = () => {
             <AssistantAvatar gender={assistantGender} />
             <div className="ml-3">
               <h3 className="font-semibold text-gray-800 dark:text-white">
-                {assistantName}
+                {assistantName || 'Loading...'}
+                <span className="ml-2 text-xs text-gray-500">({assistantGender})</span>
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-300">
                 {isTyping ? 'Typing...' : 'Online'}

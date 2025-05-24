@@ -9,6 +9,7 @@ export default function Signup({ onLoginClick }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [gender, setGender] = useState('male');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -26,7 +27,8 @@ export default function Signup({ onLoginClick }) {
         password,
         first_name: firstName,
         last_name: lastName,
-        mobile_number: mobileNumber
+        mobile_number: mobileNumber,
+        gender
       });
       setSuccess('Signup successful! You can now log in.');
       setTimeout(() => onLoginClick(), 1000);
@@ -43,6 +45,18 @@ export default function Signup({ onLoginClick }) {
         <input className="w-full mb-4 p-2 rounded bg-gray-700 text-white" placeholder="Last Name" type="text" value={lastName} onChange={e => setLastName(e.target.value)} />
         <input className="w-full mb-4 p-2 rounded bg-gray-700 text-white" placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
         <input className="w-full mb-4 p-2 rounded bg-gray-700 text-white" placeholder="Mobile Number" type="text" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} />
+        <div className="mb-4">
+          <label className="block text-gray-300 text-sm mb-2">Gender</label>
+          <select 
+            className="w-full p-2 rounded bg-gray-700 text-white" 
+            value={gender} 
+            onChange={e => setGender(e.target.value)}
+          >
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
         <input className="w-full mb-4 p-2 rounded bg-gray-700 text-white" placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
         {error && <div className="text-red-400 mb-2">{error}</div>}
         {success && <div className="text-green-400 mb-2">{success}</div>}

@@ -65,13 +65,20 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     if (!isInitialized.current) {
       isInitialized.current = true;
       try {
-        // Always open chat on first load
-        console.log('Initializing chat - opening by default');
-        setIsOpen(true);
-        localStorage.setItem('chatIsOpen', 'true');
+        // Log the current state of localStorage for debugging
+        const savedIsOpen = localStorage.getItem('chatIsOpen');
+        console.log('Chat initialization - Initial localStorage chatIsOpen:', savedIsOpen);
+        
+        // Force chat to be closed on initial load
+        console.log('Forcing chat to closed state');
+        localStorage.removeItem('chatIsOpen'); // Clear any saved state
+        console.log('After clearing, localStorage chatIsOpen:', localStorage.getItem('chatIsOpen'));
+        
+        setIsOpen(false);
+        console.log('Chat state set to closed');
       } catch (error) {
         console.error('Error initializing chat state:', error);
-        setIsOpen(true); // Ensure chat is open even if there's an error
+        setIsOpen(false);
       }
       return () => {
         console.log('ChatProvider cleanup');
@@ -115,29 +122,67 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
 
   const quickReplies = defaultQuickReplies;
 
+  // Update config when user's gender changes
   useEffect(() => {
-    // Set assistant name and gender based on user's gender
-    const assistantName = userContext.gender === 'female' ? 'Krish' : 
-                         userContext.gender === 'male' ? 'Rukmini' : 'Chanakya';
-    const assistantGender = userContext.gender === 'female' ? 'male' : 
-                           userContext.gender === 'male' ? 'female' : 'neutral';
+    console.log('User gender changed:', userContext.gender);
     
-    setConfig(prev => ({
-      ...prev,
+    // Set assistant name and gender based on user's gender
+    // Rukmini for female users, Krishna for male users, Chanakya for neutral/unspecified
+    const assistantName = userContext.gender === 'female' ? 'Rukmini' : 
+                         userContext.gender === 'male' ? 'Krishna' : 'Chanakya';
+    const assistantGender = (userContext.gender === 'female' ? 'female' : 
+                            userContext.gender === 'male' ? 'male' : 'neutral') as Gender;
+    
+    console.log('Setting assistant:', { assistantName, assistantGender });
+    
+    setConfig(prev => {
+      console.log('Previous config:', prev);
+      const newConfig = {
+        ...prev,
+        assistantName,
+        assistantGender,
+      };
+      console.log('New config:', newConfig);
+      return newConfig;
+    });
+    
+    // Save to localStorage
+    const newConfig = {
+      ...config,
       assistantName,
       assistantGender,
-    }));
+    };
+    localStorage.setItem('chatConfig', JSON.stringify(newConfig));
+    console.log('Saved to localStorage:', newConfig);
+  }, [userContext.gender]);
 
-    // Add welcome message if no messages exist
-    if (messages.length === 0) {
+  // Add welcome message if no messages exist
+  useEffect(() => {
+    console.log('Checking welcome message:', { messagesLength: messages.length, assistantName: config.assistantName });
+    
+    if (messages.length === 0 && config.assistantName) {
+      let welcomeText = '';
+      
+      // Set different welcome messages based on user's gender
+      if (userContext.gender === 'male') {
+        welcomeText = "Hi, I'm Rukmini. How can I help you today?";
+      } else if (userContext.gender === 'female') {
+        welcomeText = "Hi, I'm Krishna. How can I help you today?";
+      } else {
+        welcomeText = "Hi, I'm Chanakya. How can I help you today?";
+      }
+      
+      console.log('Creating welcome message:', welcomeText);
+      
       const welcomeMessage = {
         id: uuidv4(),
-        text: `Hi${userContext.name !== 'Friend' ? ' ' + userContext.name : ''}! I'm ${assistantName}, your personal guide. How can I help you today?`,        sender: 'assistant' as const,
+        text: welcomeText,
+        sender: 'assistant' as const,
         timestamp: new Date(),
       };
       setMessages([welcomeMessage]);
     }
-  }, [userContext.gender, userContext.name]);
+  }, [userContext.gender, config.assistantName]);
 
   const updateUserContext = (updates: Partial<UserContext>) => {
     setUserContext(prev => {
@@ -161,17 +206,55 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     setMessages(prev => [...prev, userMessage]);
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await fetch('/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: text,
+          gender: userContext.gender,
+          mood: userContext.mood,
+          // Add any other required fields
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response from server');
+      }
+
+      const data = await response.json();
+      
+      // Only add the assistant's response, not the entire history
       const responseMessage: Message = {
         id: uuidv4(),
-        text: generateResponse(text),
+        text: data.response,
+        sender: 'assistant',
+        timestamp: new Date(data.timestamp || new Date().toISOString()),
+      };
+      
+      // Use functional update to ensure we have the latest state
+      setMessages(prev => {
+        // Filter out any existing assistant messages that might be duplicates
+        const filtered = prev.filter(msg => 
+          !(msg.sender === 'assistant' && msg.timestamp > new Date(Date.now() - 1000))
+        );
+        return [...filtered, responseMessage];
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
+        id: uuidv4(),
+        text: 'Sorry, I encountered an error. Please try again later.',
         sender: 'assistant',
         timestamp: new Date(),
+        isError: true
       };
-      setMessages(prev => [...prev, responseMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000 + Math.random() * 1000);
+    }
   };
 
   const generateResponse = (text: string): string => {
@@ -192,34 +275,46 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
   };
 
-  const toggleChat = useCallback((forceState?: boolean) => {
-    console.log('=== toggleChat called ===', { forceState });
+  // Update the assistant's name based on user's gender
+  useEffect(() => {
+    const assistantName = userContext.gender === 'female' ? 'Krishna' : 
+                         userContext.gender === 'male' ? 'Rukmini' : 'Chanakya';
     
-    setIsOpen(prev => {
-      const newValue = forceState !== undefined ? forceState : !prev;
-      console.log('Toggling chat from', prev, 'to', newValue);
+    setConfig(prev => ({
+      ...prev,
+      assistantName,
+      assistantGender: userContext.gender === 'female' ? 'male' : 
+                      userContext.gender === 'male' ? 'female' : 'neutral'
+    }));
+  }, [userContext.gender]);
+
+  const toggleChat = useCallback((forceState?: boolean) => {
+    console.log('=== toggleChat called ===', { 
+      forceState,
+      currentState: isOpen,
+      localStorageValue: localStorage.getItem('chatIsOpen')
+    });
+    
+    // Always use the functional update form to ensure we have the latest state
+    setIsOpen(prevState => {
+      // If forceState is provided, use that, otherwise toggle the current state
+      const newState = forceState !== undefined ? forceState : !prevState;
+      
+      console.log('Toggling chat from', prevState, 'to', newState);
       
       // Save to localStorage for persistence
       try {
-        localStorage.setItem('chatIsOpen', String(newValue));
+        localStorage.setItem('chatIsOpen', String(newState));
+        console.log('Saved to localStorage:', newState);
       } catch (error) {
         console.error('Error saving to localStorage:', error);
       }
       
-      return newValue;
+      return newState;
     });
-  }, []);
+  }, []); // Remove isOpen from dependencies since we're using functional updates
   
-  // Add effect to ensure chat is open when component mounts
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      console.log('Ensuring chat is open on mount');
-      setIsOpen(true);
-      localStorage.setItem('chatIsOpen', 'true');
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, []);
+  // Removed auto-open effect to allow chat to stay closed until user interaction
   
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = React.useMemo(() => ({

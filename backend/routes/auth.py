@@ -16,16 +16,34 @@ def register():
     data = request.json
     email = data.get('email')
     password = data.get('password')
+    gender = data.get('gender', 'neutral')  # Default to 'neutral' if not provided
+    
     if not email or not password:
         return jsonify({'error': 'Email and password required'}), 400
+        
+    if gender not in ['male', 'female', 'neutral']:
+        return jsonify({'error': 'Invalid gender. Must be one of: male, female, neutral'}), 400
+        
     with Session(engine) as session:
         if session.query(User).filter_by(email=email).first():
             return jsonify({'error': 'Email already exists'}), 400
+            
         hashed = generate_password_hash(password)
-        user = User(email=email, password_hash=hashed)
+        user = User(
+            email=email, 
+            password_hash=hashed,
+            gender=gender,
+            first_name=data.get('first_name', ''),
+            last_name=data.get('last_name', '')
+        )
         session.add(user)
         session.commit()
-        return jsonify({'message': 'User registered successfully'})
+        return jsonify({
+            'message': 'User registered successfully',
+            'user_id': user.id,
+            'email': user.email,
+            'gender': user.gender
+        })
 
 @bp.route('/login', methods=['POST'])
 def login():
@@ -40,9 +58,16 @@ def login():
             return jsonify({'error': 'Invalid credentials'}), 401
         token = jwt.encode({
             'user_id': user.id,
+            'email': user.email,
+            'gender': user.gender,
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=6)
         }, SECRET_KEY, algorithm='HS256')
-        return jsonify({'token': token, 'user_id': user.id, 'email': user.email})
+        return jsonify({
+            'token': token, 
+            'user_id': user.id, 
+            'email': user.email,
+            'gender': user.gender
+        })
 
 # Helper to decode token and get user_id
 def decode_token(token):
@@ -67,17 +92,26 @@ def get_current_user():
 
 @bp.route('/profile', methods=['GET'])
 def get_profile():
-    user = get_current_user()
-    if not user:
-        return jsonify({'error': 'Unauthorized'}), 401
-    return jsonify({
-        'id': user.id,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'email': user.email,
-        'mobile_number': user.mobile_number,
-        'address': user.address
-    })
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'Token is missing'}), 401
+    try:
+        user_id = decode_token(token.split(' ')[1])
+        with Session(engine) as session:
+            user = session.query(User).filter_by(id=user_id).first()
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            return jsonify({
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'gender': user.gender,
+                'mobile_number': user.mobile_number,
+                'address': user.address
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 @bp.route('/reset_password', methods=['POST'])
 def reset_password():
@@ -111,6 +145,8 @@ def update_profile():
     user.email = data.get('email', user.email)
     user.mobile_number = data.get('mobile_number', user.mobile_number)
     user.address = data.get('address', user.address)
+    if 'gender' in data and data['gender'] in ['male', 'female', 'neutral']:
+        user.gender = data['gender']
     with Session(engine) as session:
         session.merge(user)
         session.commit()

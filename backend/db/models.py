@@ -12,6 +12,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     mobile_number = Column(String)
     address = Column(String)
+    gender = Column(String(10), default='neutral')  # 'male', 'female', or 'neutral'
     password_hash = Column(String, nullable=False)  # bcrypt hash
 
 class Budget(Base):

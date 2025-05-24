@@ -52,11 +52,18 @@ export function AuthProvider({ children }) {
     };
   }, [token]);
 
-  const login = (token, userId, username, email) => {
+  const login = (token, userId, username, email, gender) => {
     setToken(token);
     localStorage.setItem('token', token);
     const decoded = decodeJWT(token);
-    setUser({ token, userId, username, email, ...decoded });
+    setUser({ 
+      token, 
+      userId, 
+      username, 
+      email, 
+      gender: gender || decoded.gender || 'neutral',
+      ...decoded 
+    });
     setLogoutMsg('');
   };
 

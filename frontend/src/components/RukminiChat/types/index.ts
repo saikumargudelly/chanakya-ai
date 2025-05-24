@@ -6,6 +6,7 @@ export interface Message {
   sender: 'user' | 'assistant';
   timestamp: Date;
   mood?: MoodType;
+  isError?: boolean;
 }
 
 export type MoodType = 'calm' | 'happy' | 'excited' | 'stressed' | 'neutral';

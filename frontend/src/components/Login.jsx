@@ -15,7 +15,7 @@ export default function Login({ onSignupClick }) {
     setError('');
     try {
       const res = await axios.post('http://localhost:5001/auth/login', { email, password });
-      login(res.data.token, res.data.user_id, undefined, res.data.email);
+      login(res.data.token, res.data.user_id, undefined, res.data.email, res.data.gender);
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     }

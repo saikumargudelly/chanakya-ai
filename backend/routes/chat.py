@@ -10,7 +10,7 @@ import datetime
 
 from db.models import ChatHistory
 from utils.helpers import format_expenses
-from chanakya_chain.prompts import GENERAL_PROMPT_TEMPLATE, PERMA_PROMPT_TEMPLATE
+from chanakya_chain.prompts import GENERAL_PROMPT_TEMPLATE, PERMA_PROMPT_TEMPLATE, KRISHNA_PROMPT_TEMPLATE, RUKMINI_PROMPT_TEMPLATE
 
 chat_bp = Blueprint('chat', __name__)
 
@@ -30,11 +30,15 @@ def get_user_memory(user_id):
 @chat_bp.route('', methods=['POST'])
 def chat():
     data = request.json
+    print(f"\n=== INCOMING REQUEST DATA ===\n{data}\n{'='*30}\n")  # Debug log
+    
     user_id = data.get('user_id', 'default')
     message = data.get('message', '').strip()
     income = data.get('income', 0)
     expenses = data.get('expenses', {})
     mood = data.get('mood', 'neutral')
+    user_gender = data.get('gender', 'neutral')  # 'male', 'female', or 'neutral'
+    print(f"Extracted gender: {user_gender}")  # Debug log
 
     # Input validation
     if not message:
@@ -47,13 +51,27 @@ def chat():
         income = 0
 
     memory = get_user_memory(user_id)
+    
+    # Select prompt template based on user's gender
+    if user_gender == 'male':
+        template = RUKMINI_PROMPT_TEMPLATE  # Female assistant for male users
+        print(f"\n=== USING RUKMINI TEMPLATE (for male user) ===\n")
+    elif user_gender == 'female':
+        template = KRISHNA_PROMPT_TEMPLATE  # Male assistant for female users
+        print(f"\n=== USING KRISHNA TEMPLATE (for female user) ===\n")
+    else:
+        template = GENERAL_PROMPT_TEMPLATE  # Default for neutral/unspecified
+        print(f"\n=== USING DEFAULT TEMPLATE (neutral/unspecified) ===\n")
+    
     prompt = PromptTemplate(
         input_variables=["income", "expenses", "mood", "history", "input"],
-        template=GENERAL_PROMPT_TEMPLATE
+        template=template
     )
     # Format expenses for prompt
     formatted_expenses = format_expenses(expenses)
-    prompt_text = GENERAL_PROMPT_TEMPLATE.format(
+    print(f"User Gender: {user_gender}")
+    print(f"Using template: {template[:100]}..." if template else "No template selected")
+    prompt_text = template.format(
         income=income,
         expenses=formatted_expenses,
         mood=mood,
@@ -71,8 +89,9 @@ def chat():
         "Authorization": f"Bearer {groq_api_key}",
         "Content-Type": "application/json"
     }
-    # Use the improved prompt template as systemPrompt
-    systemPrompt = PROMPT_TEMPLATE.strip()
+    # Use the selected prompt template as systemPrompt
+    systemPrompt = template.strip()
+    print(f"\n=== SYSTEM PROMPT ===\n{systemPrompt[:200]}...\n===================\n")
     # Reconstruct conversation history for this user
     history_messages = []
     if memory.buffer:
@@ -102,9 +121,13 @@ def chat():
             return jsonify({"error": "Groq API error", "details": groq_resp.text}), 500
         groq_data = groq_resp.json()
         # --- Detect user intent for analytics and response logic ---
-        from .intent_utils import detect_intent, trim_response_by_intent
-        intent = detect_intent(message)
-        response = groq_data["choices"][0]["message"]["content"]
+        try:
+            from .intent_utils import detect_intent, trim_response_by_intent
+            intent = detect_intent(message)
+            response = groq_data["choices"][0]["message"]["content"]
+        except ImportError as e:
+            print(f"[WARNING] Could not import intent_utils: {e}")
+            response = groq_data["choices"][0]["message"]["content"]
     except Exception as e:
         print("[ERROR] Exception during Groq API call:", str(e), flush=True)
         return jsonify({"error": "Groq API exception", "details": str(e)}), 500
@@ -123,15 +146,10 @@ def chat():
     finally:
         db.close()
 
-    # Return last 10 chat messages for frontend display
-    db = SessionLocal()
-    try:
-        history = db.query(ChatHistory).filter(ChatHistory.user_id == (user_id if isinstance(user_id, int) else None)).order_by(ChatHistory.timestamp.desc()).limit(10).all()
-        chat_history = [
-            {"message": h.message, "response": h.response, "timestamp": h.timestamp.isoformat()} for h in reversed(history)
-        ]
-    finally:
-        db.close()
-
-    return jsonify({"response": response, "history": chat_history})
+    # Return only the current response instead of full history
+    # The frontend will handle adding messages to the chat
+    return jsonify({
+        "response": response,
+        "timestamp": datetime.datetime.utcnow().isoformat()
+    })
 

@@ -1,6 +1,6 @@
 {
   "name": "chanakya-frontend",
-  "proxy": "http://192.168.1.4:5001",
+  "proxy": "http://192.168.17.251:5001",
   "version": "1.0.0",
   "private": true,
   "dependencies": {

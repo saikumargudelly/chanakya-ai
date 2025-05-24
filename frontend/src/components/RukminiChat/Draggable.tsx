@@ -39,31 +39,94 @@ const Draggable = memo(() => {
 
   const [isDraggingState, setIsDraggingState] = useState(false);
   const clickTimer = useRef<NodeJS.Timeout | null>(null);
-  const isClick = useRef(true);
+  const isDraggingRef = useRef(false);
+  const dragStartPosition = useRef({ x: 0, y: 0 });
+  const DRAG_THRESHOLD = 5; // pixels
+  const CLICK_DELAY_MS = 100; // ms
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    isClick.current = true;
-    
-    // Set a timer to handle the click after a short delay
-    clickTimer.current = setTimeout(() => {
-      if (isClick.current && toggleChat) {
-        toggleChat();
-      }
-    }, 100);
+  // Track if we should handle the click
+  const shouldHandleClick = useRef(true);
+
+  // Handle click on the avatar
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (shouldHandleClick.current && !isDraggingRef.current) {
+      console.log('Avatar clicked, toggling chat');
+      toggleChat();
+    }
+    shouldHandleClick.current = true; // Reset for next interaction
   }, [toggleChat]);
 
+  // Handle pointer down - start tracking for drag
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    // Only handle left mouse button
+    if (e.button !== 0) return;
+    
+    // Reset drag state
+    isDraggingRef.current = false;
+    shouldHandleClick.current = true;
+    dragStartPosition.current = { x: e.clientX, y: e.clientY };
+    
+    // Set a timer to detect click vs drag
+    clickTimer.current = setTimeout(() => {
+      if (!isDraggingRef.current) {
+        // This is a click, handled by handleClick
+      }
+    }, CLICK_DELAY_MS);
+  }, []);
+
+  // Handle drag movement
+  const handleDrag = useCallback((e: PointerEvent) => {
+    if (!clickTimer.current) return;
+    
+    const dx = Math.abs(e.clientX - dragStartPosition.current.x);
+    const dy = Math.abs(e.clientY - dragStartPosition.current.y);
+    
+    // If movement exceeds threshold, it's a drag
+    if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+      isDraggingRef.current = true;
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+        clickTimer.current = null;
+      }
+    }
+  }, []);
+
+  // Framer Motion drag handlers
   const handleDragStart = useCallback(() => {
-    // Mark as not a click when drag starts
-    isClick.current = false;
+    isDraggingRef.current = true;
+    shouldHandleClick.current = false; // Prevent click after drag
+    // Clear any pending click
     if (clickTimer.current) {
       clearTimeout(clickTimer.current);
+      clickTimer.current = null;
     }
     setIsDraggingState(true);
   }, []);
 
   const handleDragEnd = useCallback(() => {
+    isDraggingRef.current = false;
+    // Small delay before re-enabling click to prevent accidental clicks after drag
+    setTimeout(() => {
+      shouldHandleClick.current = true;
+    }, 100);
     setIsDraggingState(false);
   }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+      }
+    };
+  }, []);
+  
+  // Add global move listener for drag detection
+  useEffect(() => {
+    window.addEventListener('pointermove', handleDrag);
+    return () => window.removeEventListener('pointermove', handleDrag);
+  }, [handleDrag]);
   
   // Clean up timer on unmount
   useEffect(() => {
@@ -78,9 +141,8 @@ const Draggable = memo(() => {
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (toggleChat) {
-        toggleChat();
-      }
+      console.log('Keyboard event detected, toggling chat');
+      toggleChat();
     }
   }, [toggleChat]);
   
@@ -114,6 +176,7 @@ const Draggable = memo(() => {
     dragConstraints: constraintsRef,
     dragElastic: 0.1,
     dragMomentum: false,
+    onClick: handleClick,
     onPointerDown: handlePointerDown,
     onDragStart: handleDragStart,
     onDragEnd: handleDragEnd,

@@ -14,6 +14,7 @@ export default function Profile({ onClose }) {
     email: '',
     mobile_number: '',
     address: '',
+    gender: 'neutral',
   });
 
   // Fetch profile on mount
@@ -32,6 +33,7 @@ export default function Profile({ onClose }) {
           email: res.data.email || '',
           mobile_number: res.data.mobile_number || '',
           address: res.data.address || '',
+          gender: res.data.gender || 'neutral',
         });
       } catch (err) {
         setError('Failed to load profile.');
@@ -119,6 +121,20 @@ export default function Profile({ onClose }) {
           <div>
             <label className="block text-gray-700 dark:text-gray-200 mb-1">Address</label>
             <input className="w-full p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100" name="address" value={form.address} onChange={handleChange} disabled={loading} />
+          </div>
+          <div>
+            <label className="block text-gray-700 dark:text-gray-200 mb-1">Gender</label>
+            <select 
+              className="w-full p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100" 
+              name="gender" 
+              value={form.gender} 
+              onChange={handleChange}
+              disabled={loading}
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="neutral">Prefer not to say</option>
+            </select>
           </div>
           <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold" disabled={loading}>Save Changes</button>
         </form>
