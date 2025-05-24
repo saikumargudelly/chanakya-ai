@@ -1,24 +1,36 @@
 {
   "name": "chanakya-frontend",
-  "proxy": "http://192.168.17.251:5001",
   "version": "1.0.0",
   "private": true,
+  "proxy": "http://localhost:5001",
   "dependencies": {
+    "@chakra-ui/react": "^2.8.2",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
     "axios": "^1.4.0",
     "chart.js": "^4.4.9",
-    "postcss-flexbugs-fixes": "^4.2.1",
-    "postcss-preset-env": "^6.7.0",
-    "react": "^18.0.0",
+    "framer-motion": "^10.16.4",
+    "react": "^18.2.0",
     "react-chartjs-2": "^5.3.0",
-    "react-dom": "^18.0.0",
-    "react-router-dom": "^6.30.0",
-    "react-scripts": "^5.0.1",
-    "recharts": "^2.15.3",
-    "uuid": "^11.1.0"
+    "react-dom": "^18.2.0",
+    "react-icons": "^4.11.0",
+    "react-router-dom": "^6.20.1",
+    "react-scripts": "5.0.1",
+    "uuid": "^9.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\""
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   },
   "browserslist": {
     "production": [
@@ -33,9 +45,25 @@
     ]
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
-    "postcss-normalize": "^13.0.1",
-    "tailwindcss": "^3.4.17"
+    "@types/node": "^18.18.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/uuid": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "ajv": "^6.12.6",
+    "ajv-keywords": "^3.5.2",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-import": "^2.28.0",
+    "eslint-plugin-jsx-a11y": "^6.7.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.0.0",
+    "typescript": "^4.9.5",
+    "webpack-dev-server": "^4.15.1"
+  },
+  "optionalDependencies": {
+    "fsevents": "^2.3.3"
   }
 }

@@ -6,7 +6,7 @@
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "strict": false,
+    "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
@@ -27,17 +27,17 @@
     "jsx": "react-jsx",
     "jsxImportSource": "@emotion/react",
     "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "allowUmdGlobalAccess": true,
     "noEmitOnError": true
   },
   "include": [
     "src/**/*",
-    "src/types/**/*",
+    "src/types/**/*.d.ts",
     "src/**/*.ts",
+    "src/**/*.tsx",
     "node_modules/RukminiChat/**/*.ts",
-    "node_modules/RukminiChat/**/*.tsx",
-    "src/**/*.tsx"
+    "node_modules/RukminiChat/**/*.tsx"
   ],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts"]
 }

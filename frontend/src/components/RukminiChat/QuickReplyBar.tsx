@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QuickReply } from './types';
+import { QuickReply } from '../../types/chat';
 
 interface QuickReplyBarProps {
   quickReplies: QuickReply[];
-  onSelect: (text: string) => void;
-  visible: boolean;
+  onQuickReply: (quickReply: QuickReply) => void;
+  visible?: boolean;
 }
 
 export const QuickReplyBar: React.FC<QuickReplyBarProps> = ({
-  quickReplies,
-  onSelect,
-  visible,
+  quickReplies = [],
+  onQuickReply,
+  visible = true,
 }) => {
   const [displayedReplies, setDisplayedReplies] = useState<QuickReply[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -49,12 +49,11 @@ export const QuickReplyBar: React.FC<QuickReplyBarProps> = ({
               key={reply.id}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onSelect(reply.text)}
-              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full text-sm font-medium whitespace-nowrap
-                        hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center border border-gray-200 dark:border-gray-600"
+              onClick={() => onQuickReply(reply)}
+              className="px-3 py-1.5 text-sm font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors whitespace-nowrap flex items-center space-x-1"
             >
-              <span className="mr-1.5">{reply.emoji}</span>
-              {reply.text}
+              {reply.emoji && <span>{reply.emoji}</span>}
+              <span>{reply.text}</span>
             </motion.button>
           ))}
         </div>

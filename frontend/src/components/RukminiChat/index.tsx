@@ -4,20 +4,8 @@ import ChatDrawer from './ChatDrawer';
 import Draggable from './Draggable';
 import { Gender } from './types';
 
-// Main component that uses the chat context
-const RukminiChatContent: React.FC = () => {
-  console.log('Rendering RukminiChatContent');
-  const chat = useChat();
-  const { isOpen } = chat;
-  
-  // Debug log chat context
-  console.log('Chat context in RukminiChatContent:', {
-    isOpen,
-    hasToggleChat: !!chat.toggleChat,
-    userContext: chat.userContext
-  });
-  
-  // Use system preference for dark mode
+// Dark mode hook
+const useDarkMode = () => {
   const [isDarkMode, setIsDarkMode] = React.useState(false);
   
   React.useEffect(() => {
@@ -41,7 +29,15 @@ const RukminiChatContent: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+  
+  return isDarkMode;
+};
 
+// Main component that uses the chat context
+const RukminiChatContent: React.FC = () => {
+  console.log('Rendering RukminiChatContent');
+  const isDarkMode = useDarkMode();
+  
   return (
     <>
       <Draggable />
@@ -55,6 +51,23 @@ interface RukminiChatProps {
   defaultGender?: Gender;
   userName?: string;
 }
+
+// ChatContent component that uses the chat context
+const ChatContent: React.FC = () => {
+  const chat = useChat();
+  const { isOpen } = chat;
+  
+  // Debug log chat context
+  React.useEffect(() => {
+    console.log('Chat context in ChatContent:', {
+      isOpen,
+      hasToggleChat: !!chat.toggleChat,
+      userContext: chat.userContext
+    });
+  }, [chat, isOpen]);
+  
+  return <RukminiChatContent />;
+};
 
 // Provider wrapper component
 const RukminiChat: React.FC<RukminiChatProps> = ({
@@ -82,7 +95,7 @@ const RukminiChat: React.FC<RukminiChatProps> = ({
       defaultGender={defaultGender}
       userName={userName}
     >
-      <RukminiChatContent />
+      <ChatContent />
     </ChatProvider>
   ), [defaultGender, userName]);
 };

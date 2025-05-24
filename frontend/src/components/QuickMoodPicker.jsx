@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 
 const moods = [
   { label: '😊 Happy', value: 'happy'},
@@ -6,8 +7,6 @@ const moods = [
   { label: '😟 Sad', value: 'sad' },
   { label: '😠 Stressed', value: 'stressed' },
 ];
-
-import axios from 'axios';
 
 const QuickMoodPicker = ({ onMoodLogged }) => {
   const [selectedMood, setSelectedMood] = useState('');

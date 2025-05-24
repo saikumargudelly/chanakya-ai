@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import FinancialPieChart from './FinancialPieChart';
 import { useAuth } from './AuthContext';
 
@@ -11,8 +12,6 @@ const defaultCategories = [
   { key: 'other', label: 'Other', value: '' },
   { key: 'savings', label: 'Savings', value: '' },
 ];
-
-import axios from 'axios';
 
 export default function FinancialPosition({ onClose }) {
   const [income, setIncome] = useState('');

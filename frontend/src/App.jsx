@@ -10,7 +10,6 @@ import QuickMoodPicker from './components/QuickMoodPicker';
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import GoalTracker from './components/GoalTracker';
-import GoalList from './components/GoalList';
 import GoalItem from './components/GoalItem';
 import GoalModal from './components/GoalModal';
 import { GoalProvider, useGoals } from './context/GoalContext';
@@ -41,11 +40,7 @@ function AppContent() {
   const { goals } = useGoals();
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-
-  const [showDashboard, setShowDashboard] = useState(true);
-  const [showGoalTracker, setShowGoalTracker] = useState(false);
-  const [showBudgetAnalytics, setShowBudgetAnalytics] = useState(false);
-  const [showFinancialPosition, setShowFinancialPosition] = useState(false);
+  const showDashboard = true;
 
   // Robust scroll-to-section: use ref
   const dashboardRef = React.useRef(null);

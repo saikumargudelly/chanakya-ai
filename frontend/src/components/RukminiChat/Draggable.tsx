@@ -1,176 +1,133 @@
 import React, { useRef, useState, useCallback, memo, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, PanInfo } from 'framer-motion';
 import { useChat } from './context/ChatContext';
+
+const DRAG_THRESHOLD = 5; // pixels to move before considering it a drag
 
 const Draggable = memo(() => {
   const { toggleChat, userContext } = useChat();
   const constraintsRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  
-  // Memoize avatar image based on user context
-  const avatarImage = useCallback(() => {
-    if (!userContext) return '/avatars/chanakya.svg';
-    if (userContext.gender === 'male') return '/avatars/krish.svg';
-    if (userContext.gender === 'female') return '/avatars/rukmini.svg';
-    return '/avatars/chanakya.svg';
-  }, [userContext?.gender]);
-  
-  // Memoize mood border color
-  const moodBorderColor = useCallback(() => {
-    if (!userContext) return '#8b5cf6';
-    switch (userContext.mood) {
-      case 'happy': return '#f59e0b';
-      case 'stressed': return '#ef4444';
-      case 'calm': return '#3b82f6';
-      default: return '#8b5cf6';
-    }
-  }, [userContext?.mood]);
-
-  // Memoize mood emoji
-  const moodEmoji = useCallback(() => {
-    if (!userContext) return '😐';
-    switch (userContext.mood) {
-      case 'happy': return '😊';
-      case 'stressed': return '😫';
-      case 'calm': return '😌';
-      default: return '😐';
-    }
-  }, [userContext?.mood]);
-
-  const [isDraggingState, setIsDraggingState] = useState(false);
-  const clickTimer = useRef<NodeJS.Timeout | null>(null);
   const isDraggingRef = useRef(false);
-  const dragStartPosition = useRef({ x: 0, y: 0 });
-  const DRAG_THRESHOLD = 5; // pixels
-  const CLICK_DELAY_MS = 100; // ms
-
-  // Track if we should handle the click
   const shouldHandleClick = useRef(true);
+  const clickTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle click on the avatar
+  // Clean up timer on unmount
+  useEffect(() => {
+    const timer = clickTimer.current;
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  // Handle click with debounce to prevent accidental clicks after drag
   const handleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (shouldHandleClick.current && !isDraggingRef.current) {
-      console.log('Avatar clicked, toggling chat');
-      toggleChat();
+    if (!shouldHandleClick.current) return;
+
+    // Debounce rapid clicks
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
     }
-    shouldHandleClick.current = true; // Reset for next interaction
+
+    clickTimer.current = setTimeout(() => {
+      if (shouldHandleClick.current) {
+        toggleChat();
+      }
+    }, 100);
   }, [toggleChat]);
 
-  // Handle pointer down - start tracking for drag
+  // Handle pointer down to track drag start
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    // Only handle left mouse button
-    if (e.button !== 0) return;
-    
-    // Reset drag state
-    isDraggingRef.current = false;
     shouldHandleClick.current = true;
-    dragStartPosition.current = { x: e.clientX, y: e.clientY };
-    
-    // Set a timer to detect click vs drag
-    clickTimer.current = setTimeout(() => {
-      if (!isDraggingRef.current) {
-        // This is a click, handled by handleClick
+    isDraggingRef.current = false;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const dx = Math.abs(moveEvent.clientX - startX);
+      const dy = Math.abs(moveEvent.clientY - startY);
+
+      if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+        isDraggingRef.current = true;
+        shouldHandleClick.current = false;
       }
-    }, CLICK_DELAY_MS);
+    };
+
+    const handlePointerUp = () => {
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp, { once: true });
   }, []);
 
-  // Handle drag movement
-  const handleDrag = useCallback((e: PointerEvent) => {
-    if (!clickTimer.current) return;
-    
-    const dx = Math.abs(e.clientX - dragStartPosition.current.x);
-    const dy = Math.abs(e.clientY - dragStartPosition.current.y);
-    
-    // If movement exceeds threshold, it's a drag
-    if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
-      isDraggingRef.current = true;
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-        clickTimer.current = null;
-      }
-    }
+  // Handle drag with framer-motion
+  const handleDrag = useCallback((e: MouseEvent, info: PanInfo) => {
+    if (!isDraggingRef.current) return;
+    // Handle drag logic here using info.point.x and info.point.y
   }, []);
 
-  // Framer Motion drag handlers
+  // Handle drag start/end with framer-motion
   const handleDragStart = useCallback(() => {
     isDraggingRef.current = true;
-    shouldHandleClick.current = false; // Prevent click after drag
-    // Clear any pending click
+    shouldHandleClick.current = false;
     if (clickTimer.current) {
       clearTimeout(clickTimer.current);
       clickTimer.current = null;
     }
-    setIsDraggingState(true);
   }, []);
 
   const handleDragEnd = useCallback(() => {
     isDraggingRef.current = false;
-    // Small delay before re-enabling click to prevent accidental clicks after drag
     setTimeout(() => {
       shouldHandleClick.current = true;
     }, 100);
-    setIsDraggingState(false);
   }, []);
 
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-      }
-    };
+  // Get avatar image based on user context
+  const getAvatar = useCallback((): string => {
+    if (!userContext) return '/avatars/chanakya.svg';
+    if (userContext.gender === 'male') return '/avatars/krish.svg';
+    if (userContext.gender === 'female') return '/avatars/rukmini.svg';
+    return '/avatars/chanakya.svg';
+  }, [userContext]);
+
+  // Get mood border color
+  const getBorderColor = useCallback((): string => {
+    // Default border color
+    return '#8b5cf6';
   }, []);
-  
-  // Add global move listener for drag detection
-  useEffect(() => {
-    window.addEventListener('pointermove', handleDrag);
-    return () => window.removeEventListener('pointermove', handleDrag);
-  }, [handleDrag]);
-  
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-      }
-    };
+
+  // Get mood emoji
+  const getEmoji = useCallback((): string => {
+    // Default emoji
+    return '😊';
   }, []);
 
   // Handle key down for accessibility
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      console.log('Keyboard event detected, toggling chat');
       toggleChat();
     }
   }, [toggleChat]);
   
-  const borderColor = moodBorderColor();
-  const avatar = avatarImage();
-  const emoji = moodEmoji();
+  const borderColor = getBorderColor();
+  const avatar = getAvatar();
+  const emoji = getEmoji();
   
   const motionProps = {
     initial: { opacity: 0, y: 20 },
     animate: {
       opacity: 1,
       y: 0,
-      scale: [1, 1.05, 1],
-      boxShadow: [
-        `0 0 0 0 ${borderColor}`,
-        `0 0 0 10px ${borderColor}40`,
-        `0 0 0 0 ${borderColor}00`
-      ]
+      scale: 1,
+      boxShadow: `0 0 0 0 ${borderColor}`
     },
     transition: {
-      duration: 2,
-      repeat: Infinity,
-      repeatType: 'loop',
-      ease: 'easeInOut',
       opacity: { duration: 0.3 },
-      y: { type: 'spring', stiffness: 300, damping: 20 },
-      scale: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
-      boxShadow: { duration: 2, repeat: Infinity, ease: 'easeInOut' }
+      y: { type: 'spring', stiffness: 300, damping: 20 }
     },
     drag: true,
     dragConstraints: constraintsRef,
@@ -180,10 +137,9 @@ const Draggable = memo(() => {
     onPointerDown: handlePointerDown,
     onDragStart: handleDragStart,
     onDragEnd: handleDragEnd,
-    onKeyDown: handleKeyDown,
     whileHover: { scale: 1.1 },
     whileTap: { scale: 0.95 }
-  } as const;
+  };
   
   return (
     <div 
@@ -202,21 +158,22 @@ const Draggable = memo(() => {
         role="button"
         aria-label="Toggle chat"
         tabIndex={0}
-        onKeyDown={handleKeyDown}
         className={`chat-avatar fixed bottom-8 right-8 w-16 h-16 rounded-full bg-white shadow-2xl ${
-          isDraggingState ? 'cursor-grabbing' : 'cursor-pointer'
+          isDraggingRef.current ? 'cursor-grabbing' : 'cursor-pointer'
         }`}
         style={{
           userSelect: 'none',
           WebkitUserSelect: 'none',
           touchAction: 'pan-y',
-          border: `3px solid ${isDraggingState ? '#8b5cf6' : moodBorderColor()}`,
-          boxShadow: isDraggingState ? '0 0 15px rgba(139, 92, 246, 0.8)' : 'none',
+          border: `3px solid ${isDraggingRef.current ? '#8b5cf6' : borderColor}`,
+          boxShadow: isDraggingRef.current ? '0 0 15px rgba(139, 92, 246, 0.8)' : 'none',
           alignItems: 'center',
           justifyContent: 'center',
-          pointerEvents: 'auto'
+          pointerEvents: 'auto',
+          display: 'flex' // Ensure flex layout for centering
         }}
         {...motionProps}
+        onKeyDown={handleKeyDown}
       >
         <div className="w-12 h-12 rounded-full overflow-hidden">
           <img

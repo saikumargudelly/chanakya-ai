@@ -1,4 +1,4 @@
-declare module '../../context/ThemeContext' {
+declare module 'context/ThemeContext' {
   import * as React from 'react';
 
   type Theme = 'light' | 'dark';

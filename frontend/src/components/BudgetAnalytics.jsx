@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Pie, Line } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2'; // Pie import removed as it's not used
 import 'chart.js/auto';
+import { fetchMoodSessions } from '../services/moodSession';
+import { useAuth } from './AuthContext';
 
 const PERIODS = [
   { label: 'Last 3 Months', value: '3m' },
@@ -20,14 +22,11 @@ function getPeriodStart(value) {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
-import { fetchMoodSessions } from '../services/moodSession';
-import { useAuth } from './AuthContext';
-
 export default function BudgetAnalytics() {
   const location = useLocation();
   const [period, setPeriod] = useState('3m');
   const [budgets, setBudgets] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false); // setLoading removed as it's not used
 
   // Mood trends state
   const { user } = useAuth();
@@ -68,7 +67,7 @@ useEffect(() => {
 
   const [moodPeriod, setMoodPeriod] = useState('7d');
   const [moodLoading, setMoodLoading] = useState(false);
-  const [moodSessions, setMoodSessions] = useState([]);
+  const [, setMoodSessions] = useState([]); // moodSessions removed as it's not used
   const [moodTrendData, setMoodTrendData] = useState({ labels: [], datasets: [] });
 
   // Helper to get period start for mood
@@ -200,8 +199,27 @@ useEffect(() => {
   };
 
   
+  // Sample data for testing
+  const sampleLineData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Budget',
+        data: [3000, 3200, 2800, 3500, 4000, 3800],
+        borderColor: 'rgb(99, 102, 241)',
+        tension: 0.3,
+      },
+      {
+        label: 'Actual',
+        data: [2800, 3000, 2900, 3200, 3800, 3600],
+        borderColor: 'rgb(16, 185, 129)',
+        tension: 0.3,
+      },
+    ],
+  };
+
   // Set to true to use sample data for testing
-  const useSample = false;
+  const useSample = !lineData || lineData.labels.length === 0;
   const displayLineData = useSample ? sampleLineData : lineData;
 
 
