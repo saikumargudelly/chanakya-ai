@@ -139,7 +139,7 @@ const ChatDrawer: React.FC = () => {
     setInputValue(e.target.value);
   }, []);
 
-  // Add effect to handle escape key
+  // Add effect to handle escape key and click outside
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -147,8 +147,23 @@ const ChatDrawer: React.FC = () => {
       }
     };
 
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const chatDrawer = document.querySelector('.chat-drawer-container');
+      const chatAvatar = document.querySelector('.chat-avatar');
+      
+      if (isOpen && chatDrawer && !chatDrawer.contains(target) && chatAvatar && !chatAvatar.contains(target)) {
+        toggleChat();
+      }
+    };
+
     window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [isOpen, toggleChat]);
 
   if (!isOpen) return null;
@@ -169,7 +184,7 @@ const ChatDrawer: React.FC = () => {
       {/* Chat Drawer */}
       <motion.div
         key="chat-drawer"
-        className="fixed bottom-0 right-0 w-full max-w-md h-[80vh] z-[9999] bg-white dark:bg-gray-800 rounded-t-lg shadow-xl overflow-hidden flex flex-col"
+        className="chat-drawer-container fixed bottom-0 right-0 w-full max-w-md h-[80vh] z-[9999] bg-white dark:bg-gray-800 rounded-t-lg shadow-xl overflow-hidden flex flex-col"
         style={{
           right: '1.5rem',
           maxWidth: '28rem',
