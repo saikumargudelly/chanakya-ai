@@ -111,8 +111,8 @@ function AppContent() {
                     </div>
                     {/* Overall Progress Bar */}
                     {goals.length > 0 && (() => {
-                      const totalSaved = goals.reduce((sum, g) => sum + (g.savedAmount || 0), 0);
-                      const totalTarget = goals.reduce((sum, g) => sum + (g.targetAmount || 0), 0);
+                      const totalSaved = goals.reduce((sum, g) => sum + (g?.savedAmount || 0), 0);
+                      const totalTarget = goals.reduce((sum, g) => sum + (g?.targetAmount || 0), 0);
                       const overallProgress = totalTarget > 0 ? Math.min(100, (totalSaved / totalTarget) * 100) : 0;
                       return (
                         <div className="mb-6">
@@ -134,7 +134,7 @@ function AppContent() {
                         <div className="text-lg">No goals set yet. Add one!</div>
                       ) : (
                         <div className="space-y-2">
-                          {goals.map(goal => (
+                          {goals.map(goal => goal && (
                             <GoalItem key={goal.id} goal={goal} compact={true} />
                           ))}
                         </div>

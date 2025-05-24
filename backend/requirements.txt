@@ -1,10 +1,41 @@
-flask
-flask-cors
-langchain
-langchain-community
-sqlalchemy
-python-dotenv
-alembic
-requests
-werkzeug
-PyJWT
+# Core
+Flask==2.3.3
+python-dotenv==1.0.0
+Werkzeug==2.3.7
+
+# Database
+SQLAlchemy==2.0.20
+alembic==1.12.0
+psycopg2-binary==2.9.7  # PostgreSQL adapter
+
+# API & Web
+Flask-CORS==4.0.0
+gunicorn==21.2.0  # Production WSGI server
+PyJWT==2.8.0
+python-dateutil==2.8.2
+requests==2.31.0
+
+# AI/ML
+openai==1.3.7
+langchain==0.0.340
+langchain-community==0.0.10
+numpy==1.24.4
+pandas==2.0.3
+
+# Authentication & Security
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+email-validator==2.0.0
+
+# Utilities
+python-multipart==0.0.6
+pydantic==1.10.9
+python-slugify==8.0.1
+
+# Development
+pytest==7.4.0
+pytest-cov==4.1.0
+black==23.7.0
+flake8==6.1.0
+mypy==1.5.1

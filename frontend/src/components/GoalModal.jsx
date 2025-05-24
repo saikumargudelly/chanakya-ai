@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGoals } from '../context/GoalContext';
-import { useAuth } from '../components/AuthContext';
+import { useAuth } from '../components/AuthContext.jsx';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function GoalModal({ isOpen, onClose }) {
@@ -25,8 +25,14 @@ export default function GoalModal({ isOpen, onClose }) {
     e.preventDefault();
     setError('');
 
+    // Debug: Log user object
+    console.log('Current user object:', user);
+    console.log('User ID from user object:', user?.userId || user?.id);
+    console.log('Is user authenticated?', !!user);
+
     // Check if user is authenticated
     if (!user) {
+      console.error('No user object found');
       setError('You need to be logged in to add a goal');
       return;
     }
