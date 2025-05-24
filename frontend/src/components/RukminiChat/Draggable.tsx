@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, memo } from 'react';
+import React, { useRef, useState, useCallback, memo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useChat } from './context/ChatContext';
 
@@ -37,53 +37,52 @@ const Draggable = memo(() => {
     }
   }, [userContext?.mood]);
 
-  // Memoize drag handlers
+  const [isDraggingState, setIsDraggingState] = useState(false);
+  const clickTimer = useRef<NodeJS.Timeout | null>(null);
+  const isClick = useRef(true);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    isClick.current = true;
+    
+    // Set a timer to handle the click after a short delay
+    clickTimer.current = setTimeout(() => {
+      if (isClick.current && toggleChat) {
+        toggleChat();
+      }
+    }, 100);
+  }, [toggleChat]);
+
   const handleDragStart = useCallback(() => {
-    setIsDragging(true);
+    // Mark as not a click when drag starts
+    isClick.current = false;
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+    }
+    setIsDraggingState(true);
   }, []);
 
   const handleDragEnd = useCallback(() => {
-    // Small delay to prevent accidental clicks after drag
-    setTimeout(() => setIsDragging(false), 100);
+    setIsDraggingState(false);
+  }, []);
+  
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+      }
+    };
   }, []);
 
-  // Track if the mouse was moved during mousedown
-  const mouseMoved = useRef(false);
-  const mouseDownTime = useRef(0);
-  
-  // Handle mouse down
-  const handleMouseDown = useCallback(() => {
-    mouseMoved.current = false;
-    mouseDownTime.current = Date.now();
-  }, []);
-  
-  // Handle mouse move during drag
-  const handleMouseMove = useCallback(() => {
-    if (!mouseMoved.current) {
-      mouseMoved.current = true;
-    }
-  }, []);
-  
-  // Memoize click handler
-  const handleClick = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    
-    // Only toggle chat if it's a keyboard event or a click (not a drag)
-    if (e.type === 'keydown' || (!mouseMoved.current && (Date.now() - mouseDownTime.current) < 200)) {
+  // Handle key down for accessibility
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
       if (toggleChat) {
-        console.log('Toggling chat from Draggable');
         toggleChat();
       }
     }
   }, [toggleChat]);
-
-  // Memoize key down handler for accessibility
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      handleClick(e);
-    }
-  }, [handleClick]);
   
   const borderColor = moodBorderColor();
   const avatar = avatarImage();
@@ -113,27 +112,11 @@ const Draggable = memo(() => {
     },
     drag: true,
     dragConstraints: constraintsRef,
-    onDragStart: () => {
-      handleDragStart();
-      handleMouseMove();
-    },
+    dragElastic: 0.1,
+    dragMomentum: false,
+    onPointerDown: handlePointerDown,
+    onDragStart: handleDragStart,
     onDragEnd: handleDragEnd,
-    onMouseDown: handleMouseDown,
-    onMouseMove: handleMouseMove,
-    onPointerDown: (e: React.PointerEvent) => {
-      e.stopPropagation();
-      handleMouseDown();
-    },
-    onPointerMove: (e: React.PointerEvent) => {
-      e.stopPropagation();
-      handleMouseMove();
-    },
-    onPointerUp: (e: React.PointerEvent) => {
-      e.stopPropagation();
-      if (!mouseMoved.current) {
-        handleClick(e as any);
-      }
-    },
     onKeyDown: handleKeyDown,
     whileHover: { scale: 1.1 },
     whileTap: { scale: 0.95 }
@@ -158,18 +141,16 @@ const Draggable = memo(() => {
         tabIndex={0}
         onKeyDown={handleKeyDown}
         className={`chat-avatar fixed bottom-8 right-8 w-16 h-16 rounded-full bg-white shadow-2xl ${
-          isDragging ? 'cursor-grabbing' : 'cursor-pointer'
+          isDraggingState ? 'cursor-grabbing' : 'cursor-pointer'
         }`}
         style={{
           userSelect: 'none',
           WebkitUserSelect: 'none',
           touchAction: 'pan-y',
-          border: `2px solid ${borderColor}`,
-          zIndex: 2147483647,
-          display: 'flex',
+          border: `3px solid ${isDraggingState ? '#8b5cf6' : moodBorderColor()}`,
+          boxShadow: isDraggingState ? '0 0 15px rgba(139, 92, 246, 0.8)' : 'none',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: `0 0 0 0 ${borderColor}`,
           pointerEvents: 'auto'
         }}
         {...motionProps}

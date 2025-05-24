@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import RukminiChat from './components/RukminiChat';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ChatBox from './components/ChatBox';
 import BudgetForm from './components/BudgetForm';
@@ -89,10 +90,11 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex">
-      {TopBar}
-      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
-      <Sidebar />
+    <>
+      <div className="min-h-screen bg-gray-900 flex">
+        {TopBar}
+        {showProfile && <Profile onClose={() => setShowProfile(false)} />}
+        <Sidebar />
       <main ref={mainRef} className="flex-1 ml-56 p-8 pt-20 bg-gray-900 text-gray-100 min-h-screen">
         <Routes>
           <Route path="/" element={
@@ -163,8 +165,10 @@ function AppContent() {
           <Route path="/goal-tracker" element={<GoalTracker />} />
           <Route path="/financial-position" element={<FinancialPosition />} />
         </Routes>
-      </main>
-    </div>
+        </main>
+      </div>
+      <RukminiChat />
+    </>
   );
 }
 

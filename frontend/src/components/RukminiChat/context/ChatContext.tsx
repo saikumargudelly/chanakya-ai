@@ -64,9 +64,15 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
   React.useEffect(() => {
     if (!isInitialized.current) {
       isInitialized.current = true;
-      const saved = localStorage.getItem('chatIsOpen');
-      console.log('Initializing chat state from localStorage:', saved);
-      setIsOpen(saved === 'true');
+      try {
+        // Always open chat on first load
+        console.log('Initializing chat - opening by default');
+        setIsOpen(true);
+        localStorage.setItem('chatIsOpen', 'true');
+      } catch (error) {
+        console.error('Error initializing chat state:', error);
+        setIsOpen(true); // Ensure chat is open even if there's an error
+      }
       return () => {
         console.log('ChatProvider cleanup');
       };
@@ -186,22 +192,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
   };
 
-  // Track toggle state with a ref to prevent multiple toggles
-  const toggleInProgress = React.useRef(false);
-  
-  const toggleChat = useCallback(() => {
-    console.log('=== toggleChat called ===');
+  const toggleChat = useCallback((forceState?: boolean) => {
+    console.log('=== toggleChat called ===', { forceState });
     
-    if (toggleInProgress.current) {
-      console.log('Toggle already in progress, skipping');
-      return;
-    }
-    
-    toggleInProgress.current = true;
-    
-    // Use functional update to ensure we have the latest state
     setIsOpen(prev => {
-      const newValue = !prev;
+      const newValue = forceState !== undefined ? forceState : !prev;
       console.log('Toggling chat from', prev, 'to', newValue);
       
       // Save to localStorage for persistence
@@ -213,11 +208,15 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       
       return newValue;
     });
-    
-    // Reset the flag in the next tick to allow future toggles
+  }, []);
+  
+  // Add effect to ensure chat is open when component mounts
+  useEffect(() => {
     const timer = setTimeout(() => {
-      toggleInProgress.current = false;
-    }, 0);
+      console.log('Ensuring chat is open on mount');
+      setIsOpen(true);
+      localStorage.setItem('chatIsOpen', 'true');
+    }, 500);
     
     return () => clearTimeout(timer);
   }, []);
