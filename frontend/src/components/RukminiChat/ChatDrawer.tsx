@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion';
 import { useChat } from './context/ChatContext';
 import { MoodType } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { QuickReplyBar } from './QuickReplyBar';
+
+// Create a type-safe motion component using type assertion
+const MotionDiv = motion.div as React.ComponentType<any>;
 
 // Inline SVG Icons
 const MaximizeIcon = () => (
@@ -244,7 +247,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
   return (
     <AnimatePresence key="chat-drawer-presence">
       {/* Overlay */}
-      <motion.div
+      <MotionDiv
         key="chat-overlay"
         className="fixed inset-0 bg-black bg-opacity-50 z-40"
         initial={{ opacity: 0 }}
@@ -255,7 +258,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
       />
       
       {/* Chat Drawer */}
-      <motion.div
+      <MotionDiv
         key="chat-drawer"
         className="chat-drawer-container fixed bottom-0 right-4 w-full max-w-md h-[70vh] max-h-[800px] bg-white dark:bg-gray-800 rounded-t-xl shadow-2xl flex flex-col z-50 overflow-hidden"
         initial={{ y: '100%' }}
@@ -265,7 +268,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
           pointerEvents: isOpen ? 'auto' : 'none'
         }}
         exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
       >
         <div 
@@ -307,7 +310,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
 
         <AnimatePresence key="chat-content-presence">
           {!isMinimized && (
-            <motion.div 
+            <MotionDiv 
               key="chat-content"
               className="flex-1 flex flex-col overflow-hidden"
               initial={{ height: 0, opacity: 0 }}
@@ -384,10 +387,10 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
                   </button>
                 </div>
               </div>
-            </motion.div>
+            </MotionDiv>
           )}
         </AnimatePresence>
-      </motion.div>
+      </MotionDiv>
     </AnimatePresence>
   );
 };

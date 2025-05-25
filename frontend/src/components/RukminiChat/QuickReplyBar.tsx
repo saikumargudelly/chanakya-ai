@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
 import { QuickReply } from '../../types/chat';
 
 interface QuickReplyBarProps {
@@ -7,6 +8,10 @@ interface QuickReplyBarProps {
   onQuickReply: (quickReply: QuickReply) => void;
   visible?: boolean;
 }
+
+// Create type-safe motion components using type assertion
+const MotionDiv = motion.div as React.ComponentType<any>;
+const MotionButton = motion.button as React.ComponentType<any>;
 
 export const QuickReplyBar: React.FC<QuickReplyBarProps> = ({
   quickReplies = [],
@@ -36,17 +41,17 @@ export const QuickReplyBar: React.FC<QuickReplyBarProps> = ({
 
   return (
     <AnimatePresence>
-      <motion.div 
+      <MotionDiv 
         className="px-4 py-2 bg-white dark:bg-gray-800 border-t border-b border-gray-200 dark:border-gray-700 overflow-x-auto"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.2 }}
       >
-        <div className="flex space-x-2 min-w-max">
-          {displayedReplies.map((reply) => (
-            <motion.button
-              key={reply.id}
+        <div className="flex space-x-2">
+          {displayedReplies.map((reply, index) => (
+            <MotionButton
+              key={index}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => onQuickReply(reply)}
@@ -54,10 +59,10 @@ export const QuickReplyBar: React.FC<QuickReplyBarProps> = ({
             >
               {reply.emoji && <span>{reply.emoji}</span>}
               <span>{reply.text}</span>
-            </motion.button>
+            </MotionButton>
           ))}
         </div>
-      </motion.div>
+      </MotionDiv>
     </AnimatePresence>
   );
 };

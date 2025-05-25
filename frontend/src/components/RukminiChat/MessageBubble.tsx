@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { motion } from 'framer-motion';
+import { motion, HTMLMotionProps } from 'framer-motion';
 import { Message, MoodType, Gender } from './types/chat';
 
 interface MessageBubbleProps {
@@ -16,6 +16,9 @@ const moodColors = {
   stressed: 'from-red-400 to-orange-500',
   neutral: 'from-gray-400 to-gray-500',
 };
+
+// Create a type-safe motion component using type assertion
+const MotionDiv = motion.div as React.ComponentType<any>;
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -62,7 +65,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   };
 
   return (
-    <motion.div
+    <MotionDiv
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
       initial="hidden"
       animate="visible"
@@ -115,6 +118,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {message.sender === 'user' ? '👤' : ''}
         </div>
       )}
-    </motion.div>
+    </MotionDiv>
   );
 };
