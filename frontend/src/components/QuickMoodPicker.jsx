@@ -24,11 +24,8 @@ const QuickMoodPicker = ({ onMoodLogged }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+    <>
       <div className="flex items-center gap-4 mb-4 flex-wrap">
-        <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300 tracking-tight flex items-center gap-2 mb-0">
-          <span>🧘‍♂️</span> Mood Tracker
-        </h2>
         <div className="flex gap-3 flex-wrap">
           {moods.map(m => (
             <button
@@ -43,7 +40,7 @@ const QuickMoodPicker = ({ onMoodLogged }) => {
         </div>
       </div>
       {feedback && <div className="text-blue-600 dark:text-blue-300 text-sm font-medium animate-pulse">{feedback}</div>}
-    </div>
+    </>
   );
 };
 

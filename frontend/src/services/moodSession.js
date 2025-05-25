@@ -1,9 +1,8 @@
 import API from './api';
 
 // Save a mood session to backend
-export async function saveMoodSession({ user_id, perma_scores, answers, summary }) {
+export async function saveMoodSession({ perma_scores, answers, summary }) {
   const res = await API.post('/mood-session', {
-    user_id,
     perma_scores,
     answers,
     summary,
@@ -26,4 +25,10 @@ export async function fetchRecentMoodSessions(user_id, limit = 5) {
   // Sort by timestamp desc, take latest N
   const sorted = res.data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   return sorted.slice(0, limit);
+}
+
+// Check daily session count and next available check-in time
+export async function checkDailySessionCount() {
+  const res = await API.get('/mood-session/daily-count');
+  return res.data;
 }

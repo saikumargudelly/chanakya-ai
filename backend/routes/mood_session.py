@@ -1,77 +1,131 @@
-from flask import Blueprint, request, jsonify
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine, and_
-import datetime
-import os
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
+from datetime import datetime, date, time, timedelta
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 
-from db.models import MoodSession
+from backend.db.models import MoodSession
+from backend.db.session import get_db
+from backend.utils.security import get_current_user, TokenData
 
-mood_session_bp = Blueprint('mood_session', __name__)
+router = APIRouter()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///chanakya.db")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+class MoodSessionCreate(BaseModel):
+    perma_scores: Dict[str, float]
+    answers: List[Any]
+    summary: Optional[str] = ""
 
-@mood_session_bp.route('', methods=['POST'])
-def save_mood_session():
-    data = request.json
-    user_id = data.get('user_id', 'default')
+class MoodSessionResponse(BaseModel):
+    id: int
+    user_id: Optional[int]
+    perma_scores: Dict[str, float]
+    answers: List[Any]
+    summary: str
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+@router.post("", response_model=MoodSessionResponse)
+async def save_mood_session(
+    mood_session: MoodSessionCreate,
+    current_user: TokenData = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     try:
-        user_id = int(user_id)
-    except Exception:
-        user_id = None
-    perma_scores = data.get('perma_scores')
-    answers = data.get('answers')
-    summary = data.get('summary', '')
-    timestamp = datetime.datetime.utcnow()
-    if not perma_scores or not answers:
-        return jsonify({'error': 'perma_scores and answers are required'}), 400
-
-    db = SessionLocal()
-    try:
-        session = MoodSession(
+        # Check daily limit
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # Extract user_id from token data
+        user_id = current_user.user_id
+        
+        # Check if user has reached daily limit
+        session_count = db.query(MoodSession).filter(
+            MoodSession.user_id == user_id,
+            MoodSession.timestamp >= today_start,
+            MoodSession.timestamp <= today_end
+        ).count()
+        
+        if session_count >= 3:
+            raise HTTPException(
+                status_code=400,
+                detail="Daily limit of 3 mood sessions reached"
+            )
+        
+        # Create new mood session
+        new_session = MoodSession(
             user_id=user_id,
-            perma_scores=perma_scores,
-            answers=answers,
-            summary=summary,
-            timestamp=timestamp
+            perma_scores=mood_session.perma_scores,
+            answers=mood_session.answers,
+            summary=mood_session.summary
         )
-        db.add(session)
+        
+        db.add(new_session)
         db.commit()
-        session_id = session.id
-    finally:
-        db.close()
-    return jsonify({'status': 'success', 'session_id': session_id, 'timestamp': timestamp.isoformat()})
+        db.refresh(new_session)
+        
+        return new_session
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
-@mood_session_bp.route('', methods=['GET'])
-def get_mood_sessions():
-    user_id = request.args.get('user_id', 'default')
+@router.get("", response_model=List[MoodSessionResponse])
+async def get_mood_sessions(
+    date: Optional[date] = None,
+    current_user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get mood sessions for the current user, optionally filtered by date
+    """
     try:
-        user_id = int(user_id)
-    except Exception:
-        user_id = None
-    date_str = request.args.get('date')  # Optional: YYYY-MM-DD
-    db = SessionLocal()
-    try:
+        user_id = current_user.user_id if hasattr(current_user, 'user_id') else current_user
+        print(f"Fetching mood sessions for user_id: {user_id} and date: {date}")
         query = db.query(MoodSession).filter(MoodSession.user_id == user_id)
-        if date_str:
-            try:
-                date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-                start = datetime.datetime.combine(date, datetime.time.min)
-                end = datetime.datetime.combine(date, datetime.time.max)
-                query = query.filter(and_(MoodSession.timestamp >= start, MoodSession.timestamp <= end))
-            except Exception:
-                pass
+        if date:
+            start = datetime.combine(date, time.min)
+            end = datetime.combine(date, time.max)
+            query = query.filter(and_(
+                MoodSession.timestamp >= start,
+                MoodSession.timestamp <= end
+            ))
         sessions = query.order_by(MoodSession.timestamp.desc()).all()
-        result = [
-            {
-                'perma_scores': s.perma_scores,
-                'answers': s.answers,
-                'summary': s.summary,
-                'timestamp': s.timestamp.isoformat()
-            }
-            for s in sessions
-        ]
-    finally:
-        db.close()
-    return jsonify(result)
+        return sessions
+    except Exception as e:
+        print(f"Error in get_mood_sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/daily-count", response_model=Dict[str, Any])
+async def get_daily_session_count(
+    current_user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the count of mood sessions for the current user today
+    """
+    try:
+        user_id = current_user.user_id if hasattr(current_user, 'user_id') else current_user
+        today = datetime.utcnow().date()
+        start = datetime.combine(today, time.min)
+        end = datetime.combine(today, time.max)
+        
+        count = db.query(func.count(MoodSession.id))\
+            .filter(
+                MoodSession.user_id == user_id,
+                MoodSession.timestamp >= start,
+                MoodSession.timestamp <= end
+            ).scalar()
+            
+        return {
+            "count": count,
+            "can_check_in": count < 2,
+            "next_check_in": None if count < 2 else (datetime.combine(today + timedelta(days=1), time.min)).isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

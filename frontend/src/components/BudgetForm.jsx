@@ -1,30 +1,40 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import apiService from '../services/api';
 import NotificationToast from './NotificationToast';
-
 import { useAuth } from './AuthContext';
+import FinancialPosition from './FinancialPosition';
 
 const BudgetForm = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [toastType, setToastType] = useState('info');
   const [showFinancialPosition, setShowFinancialPosition] = useState(false);
+  const { token } = useAuth();
+
+  // Reset FinancialPosition state when modal closes
+  useEffect(() => {
+    if (!showFinancialPosition) {
+      setIncome('');
+      setExpenses('');
+      setResults(null);
+      setAiResponse('');
+      setError('');
+    }
+  }, [showFinancialPosition]);
+
   const [income, setIncome] = useState('');
   const [expenses, setExpenses] = useState('');
   const [results, setResults] = useState(null); // { totalIncome, totalExpenses, savings, status }
   const [aiResponse, setAiResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { token } = useAuth();
 
   // Fetch and pre-populate latest budget
-  React.useEffect(() => {
+  useEffect(() => {
     async function fetchLatestBudget() {
       try {
-        const res = await axios.get('http://localhost:5001/budget', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const budgets = res.data.budgets || [];
+        const response = await apiService.get('/budget');
+        const budgets = response.budgets || [];
         if (budgets.length > 0) {
           // Find the latest budget by timestamp
           const latest = budgets.reduce((a, b) => new Date(a.timestamp) > new Date(b.timestamp) ? a : b);
@@ -129,9 +139,10 @@ const BudgetForm = () => {
     // Format message for AI
     const message = `User has an income of ₹${totalIncome.toLocaleString()} and spent ₹${totalExpenses.toLocaleString()}. Offer actionable savings or investment advice.`;
     try {
-      const res = await axios.post('http://localhost:5001/chat', { message });
-      setAiResponse(res.data.response || 'No advice received.');
-    } catch {
+      const res = await apiService.post('/chat', { message });
+      setAiResponse(res.response || 'No advice received.');
+    } catch (error) {
+      console.error('Error getting advice:', error);
       setAiResponse('Failed to get advice from Chanakya.');
     }
     setLoading(false);
@@ -139,67 +150,73 @@ const BudgetForm = () => {
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-        {showFinancialPosition ? (
-          <FinancialPosition onClose={() => setShowFinancialPosition(false)} />
-        ) : (
-          <>
-            <h2 className="text-2xl font-bold mb-4 text-green-700 dark:text-green-300 tracking-tight flex items-center gap-2">
+      {showFinancialPosition && (
+        <FinancialPosition onClose={() => setShowFinancialPosition(false)} />
+      )}
+      {!showFinancialPosition && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-green-700 dark:text-green-300 tracking-tight">
               <span>💸</span> Budget Tracker
-              <button className="ml-auto px-3 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 transition" onClick={() => setShowFinancialPosition(true)}>
-                Open Financial Position
-              </button>
             </h2>
-            <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-              <input
-                type="number"
-                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-700 transition"
-                placeholder="Monthly Income"
-                value={income}
-                onChange={e => setIncome(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-700 transition"
-                placeholder="Expenses (e.g. 10000+3000+2000)"
-                value={expenses}
-                onChange={e => setExpenses(e.target.value)}
-                required
-              />
-              <button type="submit" className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow hover:from-green-600 hover:to-emerald-700 transition" disabled={loading}>{loading ? 'Calculating...' : 'Log Budget'}</button>
-            </form>
-            {error && <div className="mt-3 text-sm font-medium text-red-600 dark:text-red-400 animate-pulse">{error}</div>}
-            {results && (
-              <div className="mt-5 p-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900">
-                <div className="mb-2 text-gray-700 dark:text-gray-200">Total Income: <span className="font-semibold">₹{results.totalIncome.toLocaleString()}</span></div>
-                <div className="mb-2 text-gray-700 dark:text-gray-200">Total Expenses: <span className="font-semibold">₹{results.totalExpenses.toLocaleString()}</span></div>
-                <div className="mb-2 text-gray-700 dark:text-gray-200">Remaining Savings: <span className="font-semibold">₹{results.savings.toLocaleString()}</span></div>
-                <div className={`mt-2 font-bold flex items-center gap-2 text-${results.status.color}-600 dark:text-${results.status.color}-400`}>
-                  <span>{results.status.icon}</span> Financial Status: {results.status.label}
-                </div>
+            <button 
+              className="px-3 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 transition"
+              onClick={() => setShowFinancialPosition(true)}
+            >
+              Open Financial Position
+            </button>
+          </div>
+          <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+            <input
+              type="number"
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-700 transition"
+              placeholder="Monthly Income"
+              value={income}
+              onChange={(e) => setIncome(e.target.value)}
+              required
+            />
+            <input
+              type="text"
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-700 transition"
+              placeholder="Expenses (e.g. 10000+3000+2000)"
+              value={expenses}
+              onChange={(e) => setExpenses(e.target.value)}
+              required
+            />
+            <button 
+              type="submit" 
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow hover:from-green-600 hover:to-emerald-700 transition"
+              disabled={loading}
+            >
+              {loading ? 'Calculating...' : 'Log Budget'}
+            </button>
+          </form>
+          {error && (
+            <div className="mt-3 text-sm font-medium text-red-600 dark:text-red-400 animate-pulse">
+              {error}
+            </div>
+          )}
+          {results && (
+            <div className="mt-5 p-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900">
+              <div className="mb-2 text-gray-700 dark:text-gray-200">
+                Total Income: <span className="font-semibold">₹{results.totalIncome.toLocaleString()}</span>
               </div>
-            )}
-            {aiResponse && (
-              <div className="mt-5 p-4 rounded-xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-gray-900 text-green-900 dark:text-green-200">
-                <div className="font-semibold mb-1">Chanakya's Advice:</div>
-                <div>{aiResponse}</div>
+              <div className="mb-2 text-gray-700 dark:text-gray-200">
+                Total Expenses: <span className="font-semibold">₹{results.totalExpenses.toLocaleString()}</span>
               </div>
-            )}
-            {showToast && (
-              <NotificationToast
-                message={toastMsg}
-                type={toastType}
-                onClose={() => setShowToast(false)}
-              />
-            )}
-          </>
-        )}
-      </div>
+              <div className="mb-2 text-gray-700 dark:text-gray-200">
+                Remaining Savings: <span className="font-semibold">₹{results.savings.toLocaleString()}</span>
+              </div>
+              <div className={`mt-2 font-bold flex items-center gap-2 text-${results.status.color}-600 dark:text-${results.status.color}-400`}>
+                <span>{results.status.icon}</span>
+                <span>Financial Status: {results.status.label}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 };
-
-const FinancialPosition = require('./FinancialPosition').default;
 
 export default BudgetForm;

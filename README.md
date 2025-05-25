@@ -1,126 +1,206 @@
 # Chanakya – AI Financial Wellness Coach
 
-A full-stack, modular web application that provides intelligent financial guidance and wellness tracking through a modern chat interface.
+A full-stack, modular web application that provides intelligent financial guidance and wellness tracking through a modern chat interface. Chanakya combines ancient wisdom with modern AI to offer personalized financial advice and emotional wellness support.
 
-## Features
-- User registration (email, first/last name, mobile, password)
-- Secure login and JWT authentication
-- Fetch and update user profile (first/last name, email, mobile, address)
-- Password reset (upsert password via email)
-- Track income and expenses
-- Log mood (emotional wellness)
-- Personalized budgeting advice (GPT-4 or Groq API)
-- Chat memory and natural conversation
-- Mood-aware prompts
-- Robust error handling and validation
-- Modern, responsive frontend UI with improved UX
-- Docker-ready and environment-based config
+## 🌟 Key Features
 
-## Tech Stack
-- **Frontend:** React, Tailwind CSS, Recharts, Axios
-- **Backend:** Flask, LangChain, SQLAlchemy, Alembic, CORS
-- **AI:** GPT-4 (OpenAI) or Groq API
-- **Other:** Docker, .env for secrets, responsive UI
+### Financial Wellness
+- Personalized budgeting advice and financial planning
+- Income and expense tracking with smart categorization
+- Savings goals and investment recommendations
+- Financial health score and progress tracking
 
-## Project Structure
+### Emotional Wellness
+- PERMA-based wellness assessment (Positive Emotions, Engagement, Relationships, Meaning, Accomplishment)
+- Mood tracking and emotional state analysis
+- Personalized wellness recommendations
+- Progress visualization and trend analysis
+
+### AI-Powered Chat Interface
+- Gender-aware AI assistant (Rukmini/Krishna/Chanakya)
+- Context-aware conversations with memory
+- Mood-adaptive responses and theming
+- Natural language understanding for financial queries
+
+### User Experience
+- Modern, responsive UI with dark/light mode
+- Real-time chat with typing indicators
+- Gamification elements (Wisdom Level, XP)
+- Quick replies and voice input support
+- Smooth animations and transitions
+
+### Security & Authentication
+- Secure user registration and login
+- JWT-based authentication
+- Password reset via email
+- Profile management with validation
+- Rate limiting and security measures
+
+## 🛠 Tech Stack
+
+### Frontend
+- React 18 with TypeScript
+- Tailwind CSS for styling
+- Framer Motion for animations
+- Recharts for data visualization
+- Axios for API communication
+
+### Backend
+- Flask (Python) REST API
+- SQLAlchemy ORM
+- Alembic for database migrations
+- LangChain for AI integration
+- OpenAI GPT-4 or Groq API
+
+### Infrastructure
+- Docker containerization
+- PostgreSQL database
+- Environment-based configuration
+- CI/CD ready
+
+## 📁 Project Structure
 ```
 ├── backend/
-│   ├── app.py
-│   ├── routes/
-│   │   ├── chat.py
-│   │   ├── budget.py
-│   │   └── mood.py
-│   ├── chanakya_chain/
-│   │   ├── memory.py
-│   │   └── prompts.py
-│   ├── db/
-│   │   └── models.py
-│   ├── utils/
-│   │   └── helpers.py
-│   ├── alembic/ (migrations)
-│   └── requirements.txt
+│   ├── app.py                 # Main Flask application
+│   ├── routes/               # API endpoints
+│   │   ├── auth.py          # Authentication routes
+│   │   ├── chat.py          # Chat interface routes
+│   │   ├── budget.py        # Budget management routes
+│   │   └── mood.py          # Mood tracking routes
+│   ├── chanakya_chain/      # AI integration
+│   │   ├── memory.py        # Chat memory management
+│   │   └── prompts.py       # AI prompt templates
+│   ├── db/                  # Database models
+│   │   └── models.py        # SQLAlchemy models
+│   ├── utils/               # Helper functions
+│   │   └── helpers.py       # Utility functions
+│   └── alembic/             # Database migrations
 ├── frontend/
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── ChatBox.jsx
-│   │   │   ├── BudgetForm.jsx
-│   │   │   ├── MoodTracker.jsx
-│   │   │   └── Dashboard.jsx
-│   │   ├── services/api.js
-│   │   ├── App.jsx
-│   │   └── index.js
-│   └── package.json
-├── .env
-├── README.md
-└── docker-compose.yml
+│   │   ├── components/      # React components
+│   │   │   ├── RukminiChat/ # Chat interface
+│   │   │   ├── BudgetForm/  # Budget management
+│   │   │   ├── MoodTracker/ # Mood tracking
+│   │   │   └── Dashboard/   # Main dashboard
+│   │   ├── contexts/        # React contexts
+│   │   ├── services/        # API services
+│   │   └── types/          # TypeScript types
+│   └── public/             # Static assets
+├── .env                    # Environment variables
+├── docker-compose.yml      # Docker configuration
+└── README.md              # Project documentation
 ```
 
----
+## 🚀 Getting Started
 
-## Setup & Usage
+### Prerequisites
+- Python 3.9+
+- Node.js 16+
+- PostgreSQL 13+
+- Docker (optional)
 
-### 1. Backend (Flask API)
+### 1. Backend Setup
 ```bash
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 cd backend
-python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
 
-#### Main Endpoints
-- `POST /auth/register` – Register user (fields: email, password, first_name, last_name, mobile_number)
-- `POST /auth/login` – Login with email and password
-- `GET /auth/profile` – Get user profile (JWT required)
-- `PUT /auth/profile` – Update user profile (JWT required)
-- `POST /auth/reset_password` – Reset password by email
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
 
-All endpoints return JSON and handle errors (e.g., duplicate email, missing fields).
-# Run DB migrations (if needed)
+# Initialize database
 alembic upgrade head
-flask run  # or python app.py
+
+# Run the server
+flask run
 ```
 
-### 2. Frontend (React UI)
+### 2. Frontend Setup
 ```bash
+# Install dependencies
 cd frontend
 npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start development server
 npm start
 ```
 
-#### Frontend Features
-- Signup form with email, first/last name, mobile, password
-- Login form with password reset modal
-- Profile page with fetch/update logic and validation
-- Error and success messaging for all user actions
-- Loading skeletons and modern UI/UX
-
-
-### 3. Environment Variables
-Create a `.env` file in the project root:
-```
-GROQ_API_KEY=your_groq_or_openai_key
-FLASK_ENV=development
-```
-
-### 4. Docker (optional)
+### 3. Docker Setup (Optional)
 ```bash
+# Build and run containers
 docker-compose up --build
 ```
 
----
+## 🔧 Environment Variables
 
-## Alembic Migrations
-- Use Alembic for DB schema changes:
-  - `alembic revision --autogenerate -m "your message"`
-  - `alembic upgrade head`
+### Backend (.env)
+```
+FLASK_APP=app.py
+FLASK_ENV=development
+DATABASE_URL=postgresql://user:password@localhost:5432/chanakya
+JWT_SECRET_KEY=your-secret-key
+OPENAI_API_KEY=your-openai-key
+GROQ_API_KEY=your-groq-key
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email
+MAIL_PASSWORD=your-password
+```
 
----
+### Frontend (.env)
+```
+REACT_APP_API_URL=http://localhost:5001
+REACT_APP_WS_URL=ws://localhost:5001
+```
 
-## Notes
-- Make sure ports 5001 (backend) and 3000 (frontend) are available.
-- For production, use a real database (Postgres recommended, see docker-compose).
-- Update `.env` with your API keys and secrets.
+## 📝 API Documentation
 
----
+### Authentication Endpoints
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - User login
+- `GET /auth/profile` - Get user profile
+- `PUT /auth/profile` - Update user profile
+- `POST /auth/reset-password` - Reset password
 
-## License
-MIT
+### Chat Endpoints
+- `POST /chat` - Send message to AI
+- `GET /chat/history` - Get chat history
+- `DELETE /chat/history` - Clear chat history
+
+### Budget Endpoints
+- `POST /budget` - Create budget
+- `GET /budget` - Get budget details
+- `PUT /budget` - Update budget
+- `GET /budget/analytics` - Get budget analytics
+
+### Mood Endpoints
+- `POST /mood` - Log mood
+- `GET /mood/history` - Get mood history
+- `GET /mood/analytics` - Get mood analytics
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- OpenAI for GPT-4 API
+- Groq for alternative AI API
+- The open-source community for various tools and libraries

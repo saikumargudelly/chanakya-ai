@@ -53,7 +53,7 @@ export function GoalProvider({ children }) {
     }
     try {
       const newGoal = await goalService.addGoal(userId, goal);
-      setGoals(prev => [...(Array.isArray(prev) ? prev : []), newGoal]);
+      await loadGoals();
       return newGoal;
     } catch (error) {
       console.error('Error adding goal:', error);
@@ -68,7 +68,7 @@ export function GoalProvider({ children }) {
     }
     try {
       const updatedGoal = await goalService.updateGoal(userId, goal);
-      setGoals(prev => (Array.isArray(prev) ? prev : []).map(g => g.id === goal.id ? updatedGoal : g));
+      await loadGoals();
       return updatedGoal;
     } catch (error) {
       console.error('Error updating goal:', error);
@@ -83,7 +83,7 @@ export function GoalProvider({ children }) {
     }
     try {
       await goalService.deleteGoal(userId, goalId);
-      setGoals(prev => (Array.isArray(prev) ? prev : []).filter(g => g.id !== goalId));
+      await loadGoals();
     } catch (error) {
       console.error('Error deleting goal:', error);
       throw error;

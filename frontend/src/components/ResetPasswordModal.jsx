@@ -1,61 +1,168 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-export default function ResetPasswordModal({ onClose }) {
+export default function ResetPasswordModal({ isOpen, onClose }) {
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState({ type: '', message: '' });
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setEmail('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setStatus({ type: '', message: '' });
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    
+    // Basic validation
     if (!email || !newPassword || !confirmPassword) {
-      setError('All fields are required.');
+      setStatus({ type: 'error', message: 'All fields are required.' });
       return;
     }
+    
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
+      setStatus({ type: 'error', message: 'Passwords do not match.' });
       return;
     }
+
     setLoading(true);
+    setStatus({ type: '', message: '' });
+
     try {
-      const res = await axios.post('http://localhost:5001/auth/reset_password', {
+      // Replace with your actual API endpoint
+      await axios.post('http://localhost:5001/auth/reset_password', {
         email,
         new_password: newPassword,
       });
-      setSuccess(res.data.message || 'Password reset successful!');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to reset password.');
+
+      setStatus({ 
+        type: 'success', 
+        message: 'Password reset successful! You can now log in with your new password.' 
+      });
+      
+      // Clear form
+      setEmail('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      // Close modal after 2 seconds
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+      
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Failed to reset password. Please try again.';
+      setStatus({ type: 'error', message: errorMessage });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg w-full max-w-md relative">
-        <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={onClose}>✕</button>
-        <h2 className="text-2xl font-bold mb-4 text-blue-700">Reset Password</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 dark:text-gray-200 mb-1">Email</label>
-            <input className="w-full p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100" type="email" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reset Password</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+              disabled={loading}
+            >
+              <span className="sr-only">Close</span>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <div>
-            <label className="block text-gray-700 dark:text-gray-200 mb-1">New Password</label>
-            <input className="w-full p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={loading} />
-          </div>
-          <div>
-            <label className="block text-gray-700 dark:text-gray-200 mb-1">Confirm Password</label>
-            <input className="w-full p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} disabled={loading} />
-          </div>
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold" disabled={loading}>Reset Password</button>
-        </form>
-        {success && <div className="mt-3 text-green-600">{success}</div>}
-        {error && <div className="mt-3 text-red-600">{error}</div>}
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email address
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
+                disabled={loading}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                New Password
+              </label>
+              <input
+                id="newPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
+                disabled={loading}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
+                disabled={loading}
+              />
+            </div>
+            
+            {status.message && (
+              <div className={`p-3 rounded-md ${status.type === 'error' ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>
+                {status.message}
+              </div>
+            )}
+            
+            <div className="mt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Resetting...
+                  </>
+                ) : 'Reset Password'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

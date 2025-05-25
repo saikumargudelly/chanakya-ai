@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export default function GoalModal({ isOpen, onClose }) {
   const { addGoal } = useGoals();
-  const { user } = useAuth();
+  const { user, isLoading } = require('../components/AuthContext.jsx').useAuth();
   const [goalName, setGoalName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [deadlineMonths, setDeadlineMonths] = useState('');
@@ -51,6 +51,13 @@ export default function GoalModal({ isOpen, onClose }) {
       return;
     }
 
+    // Check for token in localStorage
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Your session has expired. Please log in again.');
+      return;
+    }
+    console.log('Token being sent for addGoal:', token);
     try {
       await addGoal({
         id: uuidv4(),
@@ -62,12 +69,21 @@ export default function GoalModal({ isOpen, onClose }) {
       });
       onClose();
     } catch (err) {
-      console.error('Error adding goal:', err);
-      setError(err.message || 'Failed to add goal. Please try again.');
+      if (err.message && err.message.toLowerCase().includes('credential')) {
+        setError('Your session has expired. Please log in again.');
+      } else {
+        setError(err.message || 'Failed to add goal. Please try again.');
+      }
     }
   };
 
   if (!isOpen) return null;
+  if (isLoading) {
+    return <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"><div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md text-lg text-center">Loading user...</div></div>;
+  }
+  if (!user) {
+    return <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"><div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md text-lg text-center">Please log in to add a goal.</div></div>;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

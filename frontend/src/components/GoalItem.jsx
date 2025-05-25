@@ -21,13 +21,24 @@ export default function GoalItem({ goal, compact = false }) {
   const milestoneMsg = getMilestone(progress);
 
   const handleAdd = async () => {
-    if (!addAmount) return;
+    console.log('handleAdd called');
+    if (!addAmount) {
+      console.log('Add amount is empty');
+      return;
+    }
+    console.log('Adding amount:', addAmount);
     const updated = { ...goal, savedAmount: goal.savedAmount + Number(addAmount) };
-    await updateGoal(updated);
-    setAddAmount('');
-    if (getMilestone(calculateProgress(updated.savedAmount, updated.targetAmount)) !== getMilestone(progress)) {
-      setShowMilestone(true);
-      setTimeout(() => setShowMilestone(false), 3000);
+    console.log('Updating goal with data:', updated);
+    try {
+      await updateGoal(updated);
+      console.log('updateGoal completed successfully');
+      setAddAmount('');
+      if (getMilestone(calculateProgress(updated.savedAmount, updated.targetAmount)) !== getMilestone(progress)) {
+        setShowMilestone(true);
+        setTimeout(() => setShowMilestone(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error updating goal:', error);
     }
   };
 

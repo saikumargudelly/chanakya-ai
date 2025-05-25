@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { getPermaTipConversation } from '../services/permaChat';
-import { fetchMoodSessions, saveMoodSession, fetchRecentMoodSessions } from '../services/moodSession';
+import { fetchMoodSessions, saveMoodSession, fetchRecentMoodSessions, checkDailySessionCount } from '../services/moodSession';
 import { useAuth } from './AuthContext';
 import ChatBubble from './ChatBubble';
 import QuickReplies from './QuickReplies';
@@ -40,7 +40,7 @@ const PERMA_QUESTIONS = [
     question: 'Did you do something today that felt meaningful or purposeful?',
     options: [
       { label: '🌟 Yes, definitely', value: 2 },
-      { label: '🤔 I’m not sure', value: 1 },
+      { label: '🤔 I\'m not sure', value: 1 },
       { label: '🕳️ No, nothing in particular', value: 0 },
     ],
   },
@@ -50,7 +50,7 @@ const PERMA_QUESTIONS = [
     options: [
       { label: '✅ Yes, I accomplished something', value: 2 },
       { label: '📋 I started something', value: 1 },
-      { label: '❌ No, I couldn’t get to it', value: 0 },
+      { label: '❌ No, I couldn\'t get to it', value: 0 },
     ],
   },
   // Additional dynamic questions for variety
@@ -123,94 +123,273 @@ const PERMA_PILLARS = ['Positive Emotion', 'Engagement', 'Relationships', 'Meani
 const MoodTracker = () => {
   const { user } = useAuth();
   const user_id = user?.userId ? Number(user.userId) : user?.id ? Number(user.id) : user?.user_id ? Number(user.user_id) : 'default';
-  // Dynamically pick 5-8 questions per day
   const todaysQuestions = useMemo(() => getTodaysQuestions(PERMA_QUESTIONS, 5, 8), []);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState(Array(todaysQuestions.length).fill(null));
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTip, setShowTip] = useState(false);
-  const [tipChat, setTipChat] = useState([]); // [{role: 'ai'|'user', text: string}]
+  const [tipChat, setTipChat] = useState([]);
   const [tipLoading, setTipLoading] = useState(false);
   const [tipInput, setTipInput] = useState('');
   const [showJournal, setShowJournal] = useState(false);
   const [showGoal, setShowGoal] = useState(false);
-  // Carousel state for two-at-a-time
   const [visibleStart, setVisibleStart] = useState(0);
+  const [sessionsToday, setSessionsToday] = useState(0);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [lastSession, setLastSession] = useState(null);
+  const chatContainerRef = useRef(null);
+  const [historicalMoods, setHistoricalMoods] = useState([]);
+  const [moodTrends, setMoodTrends] = useState({});
+  const [showHistoricalAnalysis, setShowHistoricalAnalysis] = useState(false);
+  const [canCheckIn, setCanCheckIn] = useState(true);
+  const [nextCheckInTime, setNextCheckInTime] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const visibleCount = 2;
   const canGoLeft = visibleStart > 0;
   const canGoRight = visibleStart + visibleCount < todaysQuestions.length;
   const visibleQuestions = todaysQuestions.slice(visibleStart, visibleStart + visibleCount);
-  // Session limiting state
-  const [sessionsToday, setSessionsToday] = useState(0);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const allAnswered = answers.every(a => a !== null);
 
+  const resetInteraction = () => {
+    setShowTip(false);
+    setShowJournal(false);
+    setShowGoal(false);
+  };
+
+  // Check if user can do another check-in today
   useEffect(() => {
-    async function fetchSessions() {
-      setSessionsLoading(true);
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      const dateStr = `${yyyy}-${mm}-${dd}`;
-      try {
-        const sessions = await fetchMoodSessions(typeof user_id === 'string' ? Number(user_id) : user_id, dateStr);
-        setSessionsToday(sessions.length);
-      } catch {
-        setSessionsToday(0);
+    async function checkDailyLimit() {
+      if (!user_id || !user) {
+        setError('Please log in to use the mood tracker.');
+        setIsLoading(false);
+        return;
       }
-      setSessionsLoading(false);
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { count, can_check_in, next_check_in } = await checkDailySessionCount();
+        setCanCheckIn(can_check_in);
+        setNextCheckInTime(next_check_in ? new Date(next_check_in) : null);
+        setSessionsToday(count);
+        
+        if (count > 0) {
+          const recent = await fetchRecentMoodSessions(user_id, 1);
+          setLastSession(recent[0]);
+        }
+      } catch (error) {
+        console.error('Error checking daily limit:', error);
+        setError('Failed to check daily limit. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
     }
-    if (user_id) fetchSessions();
+    checkDailyLimit();
+  }, [user_id, user]);
+
+  // Format time remaining until next check-in
+  const getTimeUntilNextCheckIn = () => {
+    if (!nextCheckInTime) return '';
+    const now = new Date();
+    const diff = nextCheckInTime - now;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
+  // Fetch historical moods on mount
+  useEffect(() => {
+    async function fetchHistoricalMoods() {
+      if (!user_id) return;
+      try {
+        const recentSessions = await fetchRecentMoodSessions(user_id, 5);
+        setHistoricalMoods(recentSessions);
+        
+        // Calculate trends for each PERMA pillar
+        const trends = {};
+        PERMA_PILLARS.forEach(pillar => {
+          const scores = recentSessions.map(session => session.perma_scores[pillar] || 0);
+          const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+          const trend = scores.map((score, i) => i === 0 ? 0 : score - scores[i - 1]);
+          trends[pillar] = {
+            average: avg,
+            trend: trend,
+            improvement: trend[trend.length - 1] > 0,
+            consistency: Math.max(...scores) - Math.min(...scores) < 0.5
+          };
+        });
+        setMoodTrends(trends);
+      } catch (error) {
+        console.error('Error fetching historical moods:', error);
+      }
+    }
+    fetchHistoricalMoods();
   }, [user_id]);
+
+  // Scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [tipChat]);
 
   const handleAnswer = (idx, optionValue) => {
     const updated = [...answers];
     updated[idx] = optionValue;
     setAnswers(updated);
-    // Auto-advance to next question if not last
     if (idx < todaysQuestions.length - 1) {
       setStep(idx + 1);
     }
   };
 
-
-  const canProceed = answers[step] !== null;
-  const allAnswered = answers.every(a => a !== null);
-
-  const handleNext = () => {
-    if (step < todaysQuestions.length - 1) setStep(step + 1);
-  };
-  const handleBack = () => {
-    if (step > 0) setStep(step - 1);
-  };
   const handleSubmit = async () => {
+    if (!canCheckIn) {
+      setError('You have reached your daily limit of 2 mood check-ins.');
+      return;
+    }
+
+    if (!user) {
+      setError('Please log in to save your mood session.');
+      return;
+    }
+
     setShowAnalysis(true);
-    // Save session to backend
-    const { avgScores, strong, weak } = analyzePERMA();
-    const summary = `Strongest pillar: ${strong}, weakest pillar: ${weak}. Answers: ${JSON.stringify(answers)}. Questions: ${JSON.stringify(todaysQuestions.map(q => q.question))}`;
     try {
-      await saveMoodSession({
-        user_id: typeof user_id === 'string' ? Number(user_id) : user_id,
+      const { avgScores, strong, weak } = analyzePERMA();
+      const summary = `Strongest pillar: ${strong}, weakest pillar: ${weak}. Answers: ${JSON.stringify(answers)}. Questions: ${JSON.stringify(todaysQuestions.map(q => q.question))}`;
+      
+      const result = await saveMoodSession({
         perma_scores: avgScores,
         answers,
         summary,
       });
-      // Refetch session count for today
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      const dateStr = `${yyyy}-${mm}-${dd}`;
-      const sessions = await fetchMoodSessions(typeof user_id === 'string' ? Number(user_id) : user_id, dateStr);
-      setSessionsToday(sessions.length);
-    } catch (e) {
-      // Optionally show error
+
+      if (result.daily_sessions >= 2) {
+        setCanCheckIn(false);
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        setNextCheckInTime(tomorrow);
+      }
+
+      setSessionsToday(result.daily_sessions);
+    } catch (error) {
+      console.error('Error saving session:', error);
+      setError('Failed to save mood session. Please try again.');
     }
   };
 
-  function resetInteraction() {
-    setShowTip(false); setShowJournal(false); setShowGoal(false);
-  }
+  // Function to render historical mood analysis
+  const renderHistoricalAnalysis = () => {
+    if (!historicalMoods.length) return null;
+
+    const moodEmojis = {
+      'Positive Emotion': '😊',
+      'Engagement': '🧠',
+      'Relationships': '❤️',
+      'Meaning': '🌟',
+      'Accomplishment': '🏆',
+    };
+
+    // Calculate average scores for each pillar
+    const averageScores = {};
+    PERMA_PILLARS.forEach(pillar => {
+      const scores = historicalMoods.map(session => session.perma_scores[pillar] || 0);
+      averageScores[pillar] = scores.reduce((a, b) => a + b, 0) / scores.length;
+    });
+
+    // Get date range
+    const startDate = new Date(historicalMoods[historicalMoods.length - 1].timestamp);
+    const endDate = new Date(historicalMoods[0].timestamp);
+    const dateRange = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+    return (
+      <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-xl">
+        <h3 className="text-lg font-semibold text-blue-700 dark:text-blue-300 mb-3">
+          Your PERMA Results (Last 5 Days)
+        </h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-4">
+            {dateRange}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(averageScores).map(([pillar, score]) => (
+              <div key={pillar} className="flex items-center gap-3">
+                <span className="text-2xl">{moodEmojis[pillar]}</span>
+                <span className="font-semibold w-32 inline-block text-gray-700 dark:text-gray-200">{pillar}</span>
+                <div className="flex-1">
+                  <div className="relative w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-4 rounded-full transition-all duration-700 bg-blue-400"
+                      style={{ width: `${Math.round(score * 50)}%`, minWidth: '8%' }}
+                    />
+                  </div>
+                </div>
+                <span className="ml-2 font-bold text-lg">{score.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Enhanced chat handler with historical context
+  const handleChatSubmit = async (e) => {
+    e.preventDefault();
+    if (!tipInput.trim() || tipLoading) return;
+
+    const userMessage = tipInput.trim();
+    setTipChat(prev => [...prev, { role: 'user', text: userMessage }]);
+    setTipInput('');
+    setTipLoading(true);
+
+    try {
+      const perma_scores = lastSession?.perma_scores || analyzePERMA().avgScores;
+      const summary = lastSession?.summary || `Strongest pillar: ${analyzePERMA().strong}, weakest pillar: ${analyzePERMA().weak}`;
+      
+      // Enhanced history with trend analysis
+      let history = '';
+      try {
+        const recentSessions = await fetchRecentMoodSessions(user_id, 5);
+        history = recentSessions.map((s, i) => {
+          const trend = moodTrends[analyzePERMA().weak];
+          return `Session ${recentSessions.length-i}:\nPERMA: ${JSON.stringify(s.perma_scores)}\nSummary: ${s.summary}\nTrend: ${trend.improvement ? 'Improving' : 'Needs attention'}\n`;
+        }).join('\n');
+      } catch (error) {
+        console.error('Error fetching history:', error);
+      }
+
+      const aiResp = await getPermaTipConversation({ 
+        perma_scores, 
+        summary, 
+        userMessage, 
+        history,
+        trends: moodTrends
+      });
+
+      let tipText = aiResp.response;
+      if (typeof tipText === 'string') {
+        try {
+          const parsed = JSON.parse(tipText);
+          tipText = parsed.humanized || parsed.text || parsed.response || JSON.stringify(parsed);
+        } catch (e) {}
+      } else if (typeof tipText === 'object') {
+        tipText = tipText.humanized || tipText.text || tipText.response || JSON.stringify(tipText);
+      }
+
+      setTipChat(prev => [...prev, { role: 'ai', text: tipText || 'No response from AI.' }]);
+    } catch (error) {
+      console.error('Error in chat:', error);
+      setTipChat(prev => [...prev, { 
+        role: 'ai', 
+        text: 'Sorry, I encountered an error. Please try again.' 
+      }]);
+    } finally {
+      setTipLoading(false);
+    }
+  };
 
   // Analyze answers by PERMA
   function analyzePERMA() {
@@ -267,7 +446,7 @@ const MoodTracker = () => {
   }
 
   function getFinalEncouragement() {
-    return `Small actions create big ripples, my friend. You’ve already taken the first one — self-reflection. Shall we try another quick goal or journal?`;
+    return `Small actions create big ripples, my friend. You've already taken the first one — self-reflection. Shall we try another quick goal or journal?`;
   }
 
   function getDynamicTip(weak) {
@@ -287,189 +466,225 @@ const MoodTracker = () => {
     }
   }
 
-  // --- LAST SESSION HOOKS AT TOP LEVEL ---
-  const [lastSession, setLastSession] = useState(null);
-  useEffect(() => {
-    if (sessionsToday > 2 && user_id) {
-      (async () => {
-        try {
-          const recent = await fetchRecentMoodSessions(user_id, 1);
-          setLastSession(recent[0]);
-        } catch {}
-      })();
-    } else {
-      setLastSession(null);
-    }
-  }, [sessionsToday, user_id]);
-  // --- END LAST SESSION HOOKS ---
-
-  // UI
-  if (sessionsLoading) {
-    return <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center text-lg">Loading your mood sessions...</div>;
-  }
-
-  if (sessionsToday > 2) {
-  if (!lastSession) {
-    return <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center text-lg">You’ve completed your 2 Mood Check-ins for today!<br/>Loading your last PERMA result...</div>;
-  }
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center">
-      <div className="text-lg font-semibold text-blue-700 dark:text-blue-300 mb-4">You’ve completed your 2 Mood Check-ins for today! Come back tomorrow for more insights. 🌞</div>
-      <div className="mb-6 text-base text-gray-700 dark:text-gray-200">
-  <div className="mb-2 font-bold text-blue-700 dark:text-blue-200 text-xl flex items-center gap-2">
-    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m4 0h-1v4h-1m-2-4h.01M17 16h.01M7 16h.01M7 8h.01M17 8h.01" /></svg>
-    Your last PERMA result
-  </div>
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-    {lastSession && Object.entries(lastSession.perma_scores).map(([pillar, score]) => {
-      // Icons for each pillar
-      const icons = {
-        'Positive Emotion': '😊',
-        'Engagement': '🧠',
-        'Relationships': '❤️',
-        'Meaning': '🌟',
-        'Accomplishment': '🏆',
-      };
-      // Highlight strongest/weakest
-      let border = '';
-      const summary = lastSession.summary?.split('Answers:')[0] || '';
-      const strongMatch = summary.match(/Strongest pillar: ([^,]+)/);
-      const weakMatch = summary.match(/weakest pillar: ([^.]+)/);
-      const strong = strongMatch ? strongMatch[1].trim() : '';
-      const weak = weakMatch ? weakMatch[1].trim() : '';
-      if (pillar === strong) border = 'ring-2 ring-green-400 shadow-green-200';
-      if (pillar === weak) border = 'ring-2 ring-red-400 shadow-red-200';
-      return (
-        <div key={pillar} className={`rounded-xl bg-white/80 dark:bg-gray-800/80 px-4 py-3 shadow transition-all duration-300 flex items-center gap-3 ${border}`}>
-          <span className="text-2xl mr-2">{icons[pillar]}</span>
-          <span className="font-semibold w-32 inline-block text-gray-700 dark:text-gray-200">{pillar}</span>
-          <div className="flex-1">
-            <div className="relative w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className={`h-4 rounded-full transition-all duration-700 ${pillar === strong ? 'bg-green-400' : pillar === weak ? 'bg-red-400' : 'bg-blue-400'}`}
-                style={{ width: `${Math.round(score * 50)}%`, minWidth: '8%' }}></div>
-            </div>
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <div className="text-lg text-gray-700 dark:text-gray-300">
+            Loading your mood sessions...
           </div>
-          <span className="ml-2 font-bold text-lg">{score.toFixed(2)}</span>
         </div>
-      );
-    })}
-  </div>
-  <div className="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900 text-blue-800 dark:text-blue-100 shadow flex items-center gap-3">
-    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m4 0h-1v4h-1m-2-4h.01M17 16h.01M7 16h.01M7 8h.01M17 8h.01" /></svg>
-    <span className="italic">{lastSession && (lastSession.summary?.split('Answers:')[0].trim())}</span>
-  </div>
-</div>
-      {/* PERMA Chat UI */}
-      <div className="flex flex-col items-center">
-        <button
-          onClick={async ()=>{
-            setShowTip(true);
-            setTipChat([]);
-            setTipLoading(true);
-            const perma_scores = lastSession.perma_scores;
-            const summary = lastSession.summary;
-            let history = '';
-            try {
-              const recentSessions = await fetchRecentMoodSessions(user_id, 5);
-              history = recentSessions.map((s, i) => `Session ${recentSessions.length-i}:\nPERMA: ${JSON.stringify(s.perma_scores)}\nSummary: ${s.summary}\n`).join('\n');
-            } catch {}
-            const aiResp = await getPermaTipConversation({ perma_scores, summary, userMessage: '', history });
-            let tipText = aiResp.response;
-            if (typeof tipText === 'string') {
-              try {
-                const parsed = JSON.parse(tipText);
-                tipText = parsed.humanized || parsed.text || parsed.response || JSON.stringify(parsed);
-              } catch (e) {}
-            } else if (typeof tipText === 'object') {
-              tipText = tipText.humanized || tipText.text || tipText.response || JSON.stringify(tipText);
-            }
-            setTipChat([{role:'ai', text: tipText || 'No response from AI.'}]);
-            setTipLoading(false);
-          }}
-          className="px-3 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-medium hover:bg-blue-200 mb-2"
-        >
-          Chat with PERMA AI
-        </button>
-        {showTip && (
-  <div className="mt-4 w-full flex flex-col items-center">
-    <div
-      className="bg-blue-50 dark:bg-blue-900 rounded-xl p-4 w-full text-left mb-2 shadow overflow-y-auto"
-      style={{ maxHeight: '350px', minHeight: '120px' }}
-    >
-      <div ref={el => {
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }} />
-      {tipChat.map((msg, i) => (
-        <ChatBubble
-          key={i}
-          sender={msg.role}
-          text={msg.text}
-          pillar={msg.pillar}
-          isTyping={tipLoading && i === tipChat.length - 1 && msg.role === 'ai'}
-        />
-      ))}
-      {tipLoading && <ChatBubble sender="ai" text="" isTyping pillar={tipChat.length > 0 && tipChat[tipChat.length-1].pillar} />}
-    </div>
-    {!tipLoading && tipChat.length > 0 && (
-      <QuickReplies
-        replies={["👍 Sounds good", "Give me a tip", "Tell me more", "😊", "How do I improve?"]}
-        onReply={r => {
-          setTipInput(r);
-          setTimeout(() => {
-            document.getElementById('perma-chat-input')?.focus();
-          }, 100);
-        }}
-      />
-    )}
-    <form
-      className="flex gap-2 w-full mt-2"
-      onSubmit={async e => {
-        e.preventDefault();
-        if (!tipInput.trim()) return;
-        setTipChat(c => [...c, { role: 'user', text: tipInput }]);
-        setTipLoading(true);
-        const perma_scores = lastSession.perma_scores;
-        const summary = lastSession.summary;
-        let history = '';
-        try {
-          const recentSessions = await fetchRecentMoodSessions(user_id, 5);
-          history = recentSessions.map((s, i) => `Session ${recentSessions.length - i}:\nPERMA: ${JSON.stringify(s.perma_scores)}\nSummary: ${s.summary}\n`).join('\n');
-        } catch {}
-        const aiResp = await getPermaTipConversation({ perma_scores, summary, userMessage: tipInput, history });
-        let tipText = aiResp.response;
-        if (typeof tipText === 'string') {
-          try {
-            const parsed = JSON.parse(tipText);
-            tipText = parsed.humanized || parsed.text || parsed.response || JSON.stringify(parsed);
-          } catch (e) {}
-        } else if (typeof tipText === 'object') {
-          tipText = tipText.humanized || tipText.text || tipText.response || JSON.stringify(tipText);
-        }
-        setTipChat(c => [...c, { role: 'ai', text: tipText || 'No response from AI.' }]);
-        setTipLoading(false);
-        setTipInput('');
-      }}
-    >
-      <input
-        id="perma-chat-input"
-        className="flex-1 rounded-lg border px-3 py-2 dark:bg-gray-800 dark:text-white"
-        placeholder="Say something to PERMA AI..."
-        value={tipInput}
-        onChange={e => setTipInput(e.target.value)}
-        disabled={tipLoading}
-        autoFocus
-      />
-      <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white font-semibold disabled:opacity-40" disabled={tipLoading || !tipInput.trim()}>Send</button>
-    </form>
-  </div>
-)}
       </div>
-    </div>
-  );
-}
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center">
+        <div className="text-red-600 dark:text-red-400 mb-4">
+          {error}
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!canCheckIn) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto text-center">
+        <div className="text-lg font-semibold text-blue-700 dark:text-blue-300 mb-4">
+          You've completed your 2 Mood Check-ins for today! 🌞
+        </div>
+        
+        {nextCheckInTime && (
+          <div className="text-gray-600 dark:text-gray-300 mb-6">
+            Next check-in available in: {getTimeUntilNextCheckIn()}
+          </div>
+        )}
+
+        {/* PERMA Results Display */}
+        <div className="mb-6 text-base text-gray-700 dark:text-gray-200">
+          <div className="mb-2 font-bold text-blue-700 dark:text-blue-200 text-xl flex items-center gap-2">
+            <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m4 0h-1v4h-1m-2-4h.01M17 16h.01M7 16h.01M7 8h.01M17 8h.01" />
+            </svg>
+            Your PERMA Results
+          </div>
+          
+          {/* PERMA Scores Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+            {lastSession && Object.entries(lastSession.perma_scores).map(([pillar, score]) => {
+              const icons = {
+                'Positive Emotion': '😊',
+                'Engagement': '🧠',
+                'Relationships': '❤️',
+                'Meaning': '🌟',
+                'Accomplishment': '🏆',
+              };
+              
+              const summary = lastSession.summary?.split('Answers:')[0] || '';
+              const strongMatch = summary.match(/Strongest pillar: ([^,]+)/);
+              const weakMatch = summary.match(/weakest pillar: ([^.]+)/);
+              const strong = strongMatch ? strongMatch[1].trim() : '';
+              const weak = weakMatch ? weakMatch[1].trim() : '';
+              
+              const border = pillar === strong ? 'ring-2 ring-green-400 shadow-green-200' :
+                           pillar === weak ? 'ring-2 ring-red-400 shadow-red-200' : '';
+              
+              return (
+                <div key={pillar} 
+                     className={`rounded-xl bg-white/80 dark:bg-gray-800/80 px-4 py-3 shadow transition-all duration-300 flex items-center gap-3 ${border}`}>
+                  <span className="text-2xl mr-2">{icons[pillar]}</span>
+                  <span className="font-semibold w-32 inline-block text-gray-700 dark:text-gray-200">{pillar}</span>
+                  <div className="flex-1">
+                    <div className="relative w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className={`h-4 rounded-full transition-all duration-700 ${
+                        pillar === strong ? 'bg-green-400' : 
+                        pillar === weak ? 'bg-red-400' : 
+                        'bg-blue-400'
+                      }`}
+                           style={{ width: `${Math.round(score * 50)}%`, minWidth: '8%' }}>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="ml-2 font-bold text-lg">{score.toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Historical Analysis */}
+        {renderHistoricalAnalysis()}
+
+        {/* PERMA Chat UI - Only show if user has completed both check-ins */}
+        <div className="flex flex-col items-center mt-6">
+          <button
+            onClick={async () => {
+              setShowTip(true);
+              setTipChat([]);
+              setTipLoading(true);
+              try {
+                const perma_scores = lastSession.perma_scores;
+                const summary = lastSession.summary;
+                let history = '';
+                try {
+                  const recentSessions = await fetchRecentMoodSessions(user_id, 5);
+                  history = recentSessions.map((s, i) => {
+                    const trend = moodTrends[analyzePERMA().weak];
+                    return `Session ${recentSessions.length-i}:\nPERMA: ${JSON.stringify(s.perma_scores)}\nSummary: ${s.summary}\nTrend: ${trend.improvement ? 'Improving' : 'Needs attention'}\n`;
+                  }).join('\n');
+                } catch (error) {
+                  console.error('Error fetching history:', error);
+                }
+                
+                const aiResp = await getPermaTipConversation({ 
+                  perma_scores, 
+                  summary, 
+                  userMessage: '', 
+                  history,
+                  trends: moodTrends
+                });
+                
+                let tipText = aiResp.response;
+                if (typeof tipText === 'string') {
+                  try {
+                    const parsed = JSON.parse(tipText);
+                    tipText = parsed.humanized || parsed.text || parsed.response || JSON.stringify(parsed);
+                  } catch (e) {
+                    // Not JSON, leave as is
+                  }
+                } else if (typeof tipText === 'object') {
+                  tipText = tipText.humanized || tipText.text || tipText.response || JSON.stringify(tipText);
+                }
+                
+                setTipChat([{role:'ai', text: tipText || 'No response from AI.'}]);
+              } catch (error) {
+                console.error('Error in initial chat:', error);
+                setTipChat([{role:'ai', text: 'Sorry, I encountered an error. Please try again.'}]);
+              } finally {
+                setTipLoading(false);
+              }
+            }}
+            className="px-3 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-medium hover:bg-blue-200 mb-2"
+          >
+            Chat with PERMA AI
+          </button>
+
+          {showTip && (
+            <div className="mt-4 w-full flex flex-col items-center">
+              <div
+                className="bg-blue-50 dark:bg-blue-900 rounded-xl p-4 w-full text-left mb-2 shadow overflow-y-auto"
+                style={{ maxHeight: '350px', minHeight: '120px' }}
+              >
+                {tipChat.map((msg, i) => (
+                  <ChatBubble
+                    key={i}
+                    sender={msg.role}
+                    text={msg.text}
+                    pillar={msg.pillar}
+                    isTyping={tipLoading && i === tipChat.length - 1 && msg.role === 'ai'}
+                  />
+                ))}
+                {tipLoading && (
+                  <ChatBubble 
+                    sender="ai" 
+                    text="" 
+                    isTyping 
+                    pillar={tipChat.length > 0 && tipChat[tipChat.length-1].pillar} 
+                  />
+                )}
+                <div ref={chatContainerRef} />
+              </div>
+
+              {!tipLoading && tipChat.length > 0 && (
+                <QuickReplies
+                  replies={["👍 Sounds good", "Give me a tip", "Tell me more", "😊", "How do I improve?"]}
+                  onReply={r => {
+                    setTipInput(r);
+                    setTimeout(() => {
+                      document.getElementById('perma-chat-input')?.focus();
+                    }, 100);
+                  }}
+                />
+              )}
+
+              <form
+                className="flex gap-2 w-full mt-2"
+                onSubmit={handleChatSubmit}
+              >
+                <input
+                  id="perma-chat-input"
+                  className="flex-1 rounded-lg border px-3 py-2 dark:bg-gray-800 dark:text-white"
+                  placeholder="Say something to PERMA AI..."
+                  value={tipInput}
+                  onChange={e => setTipInput(e.target.value)}
+                  disabled={tipLoading}
+                  autoFocus
+                />
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 rounded bg-blue-600 text-white font-semibold disabled:opacity-40" 
+                  disabled={tipLoading || !tipInput.trim()}
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-10 border border-gray-100 dark:border-gray-700 w-full mx-auto">
+    <div className="p-6 text-gray-800 dark:text-white">
       <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300 tracking-tight flex items-center gap-2 mb-3">
         <span>🧘‍♂️</span> Mood Tracker
       </h2>
@@ -579,7 +794,7 @@ const MoodTracker = () => {
             </div>
           )}
           {showJournal && (
-            <div className="mt-2 text-green-700 dark:text-green-300 text-base text-center">Journaling helps clarify thoughts and emotions. Try writing a few lines about something that made you feel good or something you’d like to improve. 🌱</div>
+            <div className="mt-2 text-green-700 dark:text-green-300 text-base text-center">Journaling helps clarify thoughts and emotions. Try writing a few lines about something that made you feel good or something you'd like to improve. 🌱</div>
           )}
           {showGoal && (
             <div className="mt-2 text-yellow-700 dark:text-yellow-300 text-base text-center">Pick one tiny thing you can do today—like a 5-min walk, a gratitude note, or a deep breath break. Small steps matter! 🚶‍♂️</div>
@@ -606,26 +821,25 @@ const MoodTracker = () => {
                 return (
                   <div
                     key={realIdx}
-                    className={`flex-1 min-w-0 p-6 rounded-2xl border shadow-xl transition-transform duration-500 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 flex flex-col justify-between cursor-pointer hover:scale-105 hover:shadow-2xl ${step === realIdx ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-500 scale-105' : 'opacity-70'}`}
-                    style={{animation: 'fadeIn 0.5s'}}
+                    className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700 flex-1`}
                   >
-                    <div className="text-lg font-semibold mb-3">{q.question}</div>
-                    <div className="flex flex-col gap-3 mb-3">
-                      {q.options.map((opt, oidx) => (
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
+                      {q.question}
+                    </h3>
+                    <div className="flex flex-col gap-3">
+                      {q.options.map((option, optIdx) => (
                         <button
-                          key={oidx}
-                          className={`px-4 py-2 rounded-xl border font-semibold focus:outline-none shadow-sm transition-all duration-150 text-lg flex items-center gap-2 ${answers[realIdx] === opt.value ? 'bg-blue-500 text-white border-blue-700 scale-105' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-blue-100 dark:hover:bg-blue-900'}`}
-                          onClick={() => handleAnswer(realIdx, opt.value)}
-                          disabled={step !== realIdx}
+                          key={optIdx}
+                          onClick={() => handleAnswer(realIdx, option.value)}
+                          className={`p-3 rounded-lg text-left transition-all ${
+                            answers[realIdx] === option.value
+                              ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                              : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                          }`}
                         >
-                          {opt.label}
+                          {option.label}
                         </button>
                       ))}
-                    </div>
-                    <div className="flex justify-between items-center mt-2">
-                      <button className="text-xs px-2 py-1 rounded bg-gray-200 dark:bg-gray-700" disabled={realIdx===0} onClick={() => setStep(realIdx-1)}>&larr; Back</button>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Q{realIdx+1}/{todaysQuestions.length}</div>
-                      <button className="text-xs px-2 py-1 rounded bg-blue-200 dark:bg-blue-700 text-blue-900 dark:text-white" disabled={realIdx===todaysQuestions.length-1} onClick={() => setStep(realIdx+1)}>&rarr; Next</button>
                     </div>
                   </div>
                 );
@@ -640,15 +854,16 @@ const MoodTracker = () => {
               &rarr;
             </button>
           </div>
-          <div className="flex justify-center mt-6 gap-4">
-            <button
-              className="px-4 py-2 rounded bg-blue-600 text-white font-semibold shadow disabled:opacity-50"
-              disabled={!allAnswered}
-              onClick={handleSubmit}
-            >
-              See My Mood Analysis
-            </button>
-          </div>
+          {allAnswered && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={handleSubmit}
+                className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Submit Check-in
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

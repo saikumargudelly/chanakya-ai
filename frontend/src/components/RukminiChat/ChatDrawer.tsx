@@ -70,7 +70,7 @@ const TypingIndicator = React.memo(({ gender }: TypingIndicatorProps): React.Rea
   return (
     <div className="flex items-center space-x-2 p-3">
       <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-        {gender === 'male' ? '👨‍💼' : gender === 'female' ? '👩‍💼' : '🧙'}
+        {gender === 'male' ? '🧔' : gender === 'female' ? '👩‍🦰' : '🧙'}
       </div>
       <div className="flex space-x-1">
         {[0, 150, 300].map((delay) => (
@@ -97,7 +97,7 @@ const AssistantAvatar = React.memo(({ gender, size = 'md' }: AssistantAvatarProp
   const sizeClasses = size === 'md' ? 'w-10 h-10' : 'w-8 h-8';
   return (
     <div className={`${sizeClasses} rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow-md`}>
-      {gender === 'male' ? '👨‍💼' : gender === 'female' ? '👩‍💼' : '🧙'}
+      {gender === 'male' ? '🧔' : gender === 'female' ? '👩‍🦰' : '🧙'}
     </div>
   );
 }) as React.FC<AssistantAvatarProps>;
@@ -146,7 +146,9 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
   // Set mood from user context or default to neutral
   React.useEffect(() => {
     if (userContext?.mood) {
-      setCurrentMood(userContext.mood);
+      // Explicitly cast to MoodType to see if it resolves the type error
+      const moodToSet: MoodType = userContext.mood as MoodType;
+      setCurrentMood(moodToSet);
     }
   }, [userContext?.mood]);
 

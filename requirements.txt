@@ -1,27 +1,36 @@
 # Core backend
-flask>=2.2
-flask-cors>=3.0
-flask_sqlalchemy>=3.0
-flask_jwt_extended>=4.5
-flask-mail>=0.9
-sqlalchemy>=2.0
-werkzeug>=2.2
-requests>=2.28
-python-dotenv>=1.0
-alembic>=1.11
-PyJWT>=2.7
+flask==2.3.3
+flask-cors==4.0.0
+flask_sqlalchemy==3.1.1
+flask_jwt_extended==4.5.3
+flask-mail==0.9.1
+sqlalchemy==2.0.23
+werkzeug==2.3.7
+requests==2.31.0
+python-dotenv==1.0.0
+alembic==1.12.1
+PyJWT==2.8.0
+flask-limiter==3.5.0
 
 # AI and LLM integration
-langchain>=0.1.0
-langchain-community
-openai>=1.3   # For GPT-4/OpenAI API
-# groq         # Uncomment if using Groq API
+langchain==0.0.350
+langchain-community==0.0.13
+openai==1.3.7
+groq==0.4.2
 
 # Security
-bcrypt>=4.0
+bcrypt==4.0.1
+python-jose==3.3.0
 
-# Testing (optional, uncomment if needed)
-# pytest
-# coverage
+# Database
+psycopg2-binary==2.9.9
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
 
 # Note: If you use Groq API, uncomment 'groq' above.

@@ -2,7 +2,6 @@ import * as React from 'react';
 import { ChatProvider, useChat } from './context/ChatContext';
 import ChatDrawer from './ChatDrawer';
 import Draggable from './Draggable';
-import { Gender } from './types';
 
 // Dark mode hook
 const useDarkMode = () => {
@@ -48,7 +47,6 @@ const RukminiChatContent: React.FC = () => {
 
 // Define props for the RukminiChat component
 interface RukminiChatProps {
-  defaultGender?: Gender;
   userName?: string;
 }
 
@@ -71,10 +69,9 @@ const ChatContent: React.FC = () => {
 
 // Provider wrapper component
 const RukminiChat: React.FC<RukminiChatProps> = ({
-  defaultGender = 'neutral' as Gender,
   userName = 'Friend'
 }) => {
-  console.log('Rendering RukminiChat with props:', { defaultGender, userName });
+  console.log('Rendering RukminiChat with props:', { userName });
   const isMounted = React.useRef(false);
   
   React.useEffect(() => {
@@ -92,12 +89,11 @@ const RukminiChat: React.FC<RukminiChatProps> = ({
   return React.useMemo(() => (
     <ChatProvider 
       key="chat-provider"
-      defaultGender={defaultGender}
       userName={userName}
     >
       <ChatContent />
     </ChatProvider>
-  ), [defaultGender, userName]);
+  ), [userName]);
 };
 
 export { RukminiChat };

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Message, MoodType } from './types';
+import { Message, MoodType, Gender } from './types/chat';
 
 interface MessageBubbleProps {
   message: Message;

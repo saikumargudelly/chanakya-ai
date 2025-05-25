@@ -1,32 +1,40 @@
-// Abstraction layer for goal storage. Start with localStorage, easily swappable for Firebase later.
-const getStorageKey = (userId) => `user_${userId}_goals`;
+import apiService from './api';
 
 export const goalService = {
   getGoals: async (userId) => {
-    if (!userId) return [];
-    const data = localStorage.getItem(getStorageKey(userId));
-    return data ? JSON.parse(data) : [];
+    try {
+      const response = await apiService.get('/api/goals/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      throw error;
+    }
   },
+
   addGoal: async (userId, goal) => {
-    if (!userId) throw new Error('User ID is required');
-    const goals = await goalService.getGoals(userId);
-    goals.push(goal);
-    localStorage.setItem(getStorageKey(userId), JSON.stringify(goals));
-    return goal;
+    try {
+      return await apiService.post('/api/goals/', goal);
+    } catch (error) {
+      console.error('Error adding goal:', error);
+      throw error;
+    }
   },
-  updateGoal: async (userId, updatedGoal) => {
-    if (!userId) throw new Error('User ID is required');
-    let goals = await goalService.getGoals(userId);
-    goals = goals.map(g => g.id === updatedGoal.id ? updatedGoal : g);
-    localStorage.setItem(getStorageKey(userId), JSON.stringify(goals));
-    return updatedGoal;
+
+  updateGoal: async (userId, goal) => {
+    try {
+      return await apiService.put(`/api/goals/${goal.id}`, goal);
+    } catch (error) {
+      console.error('Error updating goal:', error);
+      throw error;
+    }
   },
+
   deleteGoal: async (userId, goalId) => {
-    if (!userId) throw new Error('User ID is required');
-    let goals = await goalService.getGoals(userId);
-    goals = goals.filter(g => g.id !== goalId);
-    localStorage.setItem(getStorageKey(userId), JSON.stringify(goals));
+    try {
+      return await apiService.delete(`/api/goals/${goalId}`);
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      throw error;
+    }
   }
 };
-
-// To migrate to Firebase, replace these methods with Firebase SDK calls.

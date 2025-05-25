@@ -13,11 +13,19 @@ function getGoalIdFromHash() {
 export default function GoalTracker() {
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const { goals } = useGoals();
+  const { user, isLoading } = require('../components/AuthContext.jsx').useAuth();
   const goalId = getGoalIdFromHash();
   const goal = goalId ? goals.find(g => String(g.id) === String(goalId)) : null;
 
+  if (isLoading) {
+    return <div className="p-6 text-lg text-center text-gray-800 dark:text-white">Loading user...</div>;
+  }
+  if (!user) {
+    return <div className="p-6 text-lg text-center text-gray-800 dark:text-white">Please log in to manage your goals.</div>;
+  }
+
   return (
-    <div className="p-6">
+    <div className="p-6 text-gray-800 dark:text-white">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-3xl font-bold">Goal Tracker</h1>
         <button

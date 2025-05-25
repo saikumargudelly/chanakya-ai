@@ -28,10 +28,7 @@ const ChatBox = () => {
   };
 
   return (
-    <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 h-full flex flex-col">
-      <h2 className="text-2xl font-bold mb-4 text-indigo-700 dark:text-indigo-300 tracking-tight flex items-center gap-2">
-        <span>🤖</span> Ask Chanakya Anything
-      </h2>
+    <>
       <div className="mb-4 overflow-y-auto space-y-2 flex-1" style={{maxHeight:'300px'}}>
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -51,7 +48,7 @@ const ChatBox = () => {
         />
         <button type="submit" disabled={loading || !input.trim()} className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold shadow hover:from-indigo-600 hover:to-blue-700 disabled:opacity-50 transition">{loading ? '...' : 'Send'}</button>
       </form>
-    </div>
+    </>
   );
 };
 
