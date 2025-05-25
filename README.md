@@ -46,7 +46,7 @@ A full-stack, modular web application that provides intelligent financial guidan
 - Axios for API communication
 
 ### Backend
-- Flask (Python) REST API
+- FastAPI (Python) REST API
 - SQLAlchemy ORM
 - Alembic for database migrations
 - LangChain for AI integration
@@ -61,7 +61,7 @@ A full-stack, modular web application that provides intelligent financial guidan
 ## 📁 Project Structure
 ```
 ├── backend/
-│   ├── app.py                 # Main Flask application
+│   ├── main.py                 # Main FastAPI application
 │   ├── routes/               # API endpoints
 │   │   ├── auth.py          # Authentication routes
 │   │   ├── chat.py          # Chat interface routes
@@ -117,7 +117,7 @@ cp .env.example .env
 alembic upgrade head
 
 # Run the server
-flask run
+uvicorn main:app --reload
 ```
 
 ### 2. Frontend Setup
@@ -144,8 +144,8 @@ docker-compose up --build
 
 ### Backend (.env)
 ```
-FLASK_APP=app.py
-FLASK_ENV=development
+FASTAPI_APP=main.py
+FASTAPI_ENV=development
 DATABASE_URL=postgresql://user:password@localhost:5432/chanakya
 JWT_SECRET_KEY=your-secret-key
 OPENAI_API_KEY=your-openai-key
