@@ -72,8 +72,12 @@ interface TypingIndicatorProps {
 const TypingIndicator = React.memo(({ gender }: TypingIndicatorProps): React.ReactElement => {
   return (
     <div className="flex items-center space-x-2 p-3">
-      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-        {gender === 'male' ? '🧔' : gender === 'female' ? '👩‍🦰' : '🧙'}
+      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+        <img 
+          src={gender === 'male' ? '/avatars/krish.svg' : gender === 'female' ? '/avatars/rukmini.svg' : '/avatars/chanakya.svg'} 
+          alt={gender === 'male' ? 'Krish' : gender === 'female' ? 'Rukmini' : 'Chanakya'}
+          className="w-full h-full object-cover"
+        />
       </div>
       <div className="flex space-x-1">
         {[0, 150, 300].map((delay) => (
@@ -99,8 +103,12 @@ interface AssistantAvatarProps {
 const AssistantAvatar = React.memo(({ gender, size = 'md' }: AssistantAvatarProps): React.ReactElement => {
   const sizeClasses = size === 'md' ? 'w-10 h-10' : 'w-8 h-8';
   return (
-    <div className={`${sizeClasses} rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow-md`}>
-      {gender === 'male' ? '🧔' : gender === 'female' ? '👩‍🦰' : '🧙'}
+    <div className={`${sizeClasses} rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow-md overflow-hidden`}>
+      <img 
+        src={gender === 'male' ? '/avatars/krish.svg' : gender === 'female' ? '/avatars/rukmini.svg' : '/avatars/chanakya.svg'} 
+        alt={gender === 'male' ? 'Krish' : gender === 'female' ? 'Rukmini' : 'Chanakya'}
+        className="w-full h-full object-cover"
+      />
     </div>
   );
 }) as React.FC<AssistantAvatarProps>;

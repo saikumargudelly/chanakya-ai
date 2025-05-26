@@ -1,8 +1,6 @@
-import React, { useRef, useState, useCallback, memo, useEffect } from 'react';
-import { motion, PanInfo, HTMLMotionProps, MotionStyle } from 'framer-motion';
+import React, { useRef, useState, useCallback, memo } from 'react';
+import { motion } from 'framer-motion';
 import { useChat } from './context/ChatContext';
-
-const DRAG_THRESHOLD = 5; // pixels to move before considering it a drag
 
 // Create type-safe motion component using type assertion
 const MotionDiv = motion.div as React.ComponentType<any>;
@@ -20,75 +18,28 @@ export const Draggable: React.FC<DraggableProps> = ({
   onDragEnd,
   borderColor = '#e5e7eb'
 }) => {
-  const { toggleChat, userContext } = useChat();
-  const constraintsRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-  const shouldHandleClick = useRef(true);
-  const clickTimer = useRef<NodeJS.Timeout | null>(null);
+  const { toggleChat, userContext, config } = useChat();
   const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Clean up timer on unmount
-  useEffect(() => {
-    const timer = clickTimer.current;
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
-
-  // Handle click with debounce to prevent accidental clicks after drag
+  // Handle click
   const handleClick = useCallback(() => {
-    if (shouldHandleClick.current) {
+    if (!isDragging) {
       toggleChat();
     }
-  }, [toggleChat]);
-
-  // Handle pointer down to track drag start
-  const handlePointerDown = useCallback(() => {
-    shouldHandleClick.current = true;
-    if (clickTimer.current) {
-      clearTimeout(clickTimer.current);
-    }
-    clickTimer.current = setTimeout(() => {
-      shouldHandleClick.current = false;
-    }, 200);
-  }, []);
-
-  // Handle drag with framer-motion
-  const handleDrag = useCallback((e: MouseEvent, info: PanInfo) => {
-    if (!isDraggingRef.current) return;
-    // Handle drag logic here using info.point.x and info.point.y
-  }, []);
-
-  // Handle drag start/end with framer-motion
-  const handleDragStart = useCallback(() => {
-    isDraggingRef.current = true;
-    setIsDragging(true);
-    shouldHandleClick.current = false;
-    if (clickTimer.current) {
-      clearTimeout(clickTimer.current);
-      clickTimer.current = null;
-    }
-    onDragStart?.();
-  }, [onDragStart]);
-
-  const handleDragEnd = useCallback(() => {
-    isDraggingRef.current = false;
-    setIsDragging(false);
-    setTimeout(() => {
-      shouldHandleClick.current = true;
-    }, 100);
-    onDragEnd?.();
-  }, [onDragEnd]);
+  }, [toggleChat, isDragging]);
 
   // Get avatar image based on user context
   const getAvatar = useCallback(() => {
-    if (!userContext) return '/default-avatar.png';
-    switch (userContext.gender) {
+    // Determine avatar based on assistant gender
+    console.log('Draggable: Computing avatar for assistant gender:', config?.assistantGender);
+    if (!config || !config.assistantGender) return '/default-avatar.png';
+    switch (config.assistantGender) {
       case 'male': return '/avatars/krish.svg';
       case 'female': return '/avatars/rukmini.svg';
       default: return '/avatars/chanakya.svg';
     }
-  }, [userContext]);
+  }, [config]);
 
   // Get mood border color
   const getBorderColor = useCallback(() => {
@@ -122,38 +73,36 @@ export const Draggable: React.FC<DraggableProps> = ({
     }
   }, [toggleChat]);
   
-  const motionStyle: MotionStyle = {
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    zIndex: 1000,
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-    touchAction: 'pan-y',
-    border: `3px solid ${isDragging ? '#8b5cf6' : getBorderColor()}`,
-    boxShadow: isDragging 
-      ? '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-      : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'auto',
-    display: 'flex'
-  };
-  
   return (
-    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none">
+    <div ref={containerRef} className="fixed inset-0 pointer-events-none">
       <MotionDiv
         role="button"
         aria-label="Toggle chat"
         tabIndex={0}
         drag
-        dragConstraints={constraintsRef}
-        dragElastic={0.1}
         dragMomentum={false}
-        initial={{ opacity: 0, y: 20 }}
+        dragElastic={0}
+        dragConstraints={containerRef}
+        style={{
+          position: 'fixed',
+          bottom: '2rem',
+          right: '2rem',
+          zIndex: 1000,
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          touchAction: 'none',
+          border: `3px solid ${isDragging ? '#8b5cf6' : getBorderColor()}`,
+          boxShadow: isDragging 
+            ? '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'auto',
+          display: 'flex'
+        }}
+        initial={{ opacity: 0 }}
         animate={{
           opacity: 1,
-          y: 0,
           scale: isDragging ? 1.05 : 1
         }}
         transition={{
@@ -164,12 +113,16 @@ export const Draggable: React.FC<DraggableProps> = ({
         className={`chat-avatar w-16 h-16 rounded-full bg-white shadow-2xl ${
           isDragging ? 'cursor-grabbing' : 'cursor-pointer'
         }`}
-        style={motionStyle}
-        onPointerDown={handlePointerDown}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        onDragStart={() => {
+          setIsDragging(true);
+          onDragStart?.();
+        }}
+        onDragEnd={() => {
+          setIsDragging(false);
+          onDragEnd?.();
+        }}
       >
         <div className="w-12 h-12 rounded-full overflow-hidden">
           <img
