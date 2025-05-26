@@ -8,12 +8,14 @@ from langchain.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
-from backend.db.models import ChatHistory
-from backend.chanakya_chain.prompts import RUKMINI_PROMPT_TEMPLATE, KRISHNA_PROMPT_TEMPLATE, GENERAL_PROMPT_TEMPLATE
+from backend.db.models import ChatHistory, Goal
+from backend.chanakya_chain.prompts import RUKMINI_PROMPT_TEMPLATE, KRISHNA_PROMPT_TEMPLATE, GENERAL_PROMPT_TEMPLATE, GOAL_MASTER_TEMPLATE
 from backend.utils.helpers import format_expenses
 import datetime
 
-router = APIRouter()
+# Create two routers - one for /api prefix and one for root
+api_router = APIRouter(prefix="/api")
+root_router = APIRouter()
 
 # In-memory session memory for demo; replace with DB/session for prod
 user_memories = {}
@@ -30,11 +32,23 @@ def get_user_memory(user_id: str) -> ConversationBufferMemory:
         user_memories[user_id] = memory
     return user_memories[user_id]
 
-@router.post('')
-async def chat(
-    request_data: Dict[str, Any], 
-    db: Session = Depends(get_db)
-):
+def get_template_for_model(model: str, user_gender: str) -> str:
+    """Get the appropriate template based on model and user gender."""
+    print(f"Selecting template for model: {model}, user_gender: {user_gender}")
+    
+    if model == 'goal_master':
+        return GOAL_MASTER_TEMPLATE
+    elif model == 'rukhmini':
+        return RUKMINI_PROMPT_TEMPLATE
+    elif model == 'krishna':
+        return KRISHNA_PROMPT_TEMPLATE
+    elif model == 'chanakya':
+        return GENERAL_PROMPT_TEMPLATE
+    else:
+        # Default to Chanakya template if model is not recognized
+        return GENERAL_PROMPT_TEMPLATE
+
+async def handle_chat(request_data: Dict[str, Any], db: Session = Depends(get_db)):
     """
     Handle chat messages from users and provide financial wellness advice.
     
@@ -46,6 +60,7 @@ async def chat(
             - expenses: (Optional) Dictionary of expenses
             - mood: (Optional) User's current mood
             - gender: (Optional) User's gender ('male', 'female', or 'neutral')
+            - model: (Optional) The AI model to use ('rukhmini', 'krishna', 'chanakya', or 'goal_master')
             
     Returns:
         Dictionary containing the assistant's response and timestamp
@@ -60,8 +75,9 @@ async def chat(
         expenses = request_data.get('expenses', {})
         mood = request_data.get('mood', 'neutral')
         user_gender = request_data.get('gender', 'neutral').lower()
+        model = request_data.get('model', 'chanakya').lower()
         
-        print(f"Extracted gender: {user_gender}")  # Debug log
+        print(f"Extracted gender: {user_gender}, model: {model}")  # Debug log
         
         # Input validation
         if not message:
@@ -81,20 +97,13 @@ async def chat(
         # Get or create user memory
         memory = get_user_memory(user_id)
         
-        # Select prompt template based on user's gender
-        if user_gender == 'male':
-            template = RUKMINI_PROMPT_TEMPLATE
-            print(f"\n=== USING RUKMINI TEMPLATE (for male user) ===\n")
-        elif user_gender == 'female':
-            template = KRISHNA_PROMPT_TEMPLATE
-            print(f"\n=== USING KRISHNA TEMPLATE (for female user) ===\n")
-        else:
-            template = GENERAL_PROMPT_TEMPLATE
-            print(f"\n=== USING DEFAULT TEMPLATE (neutral/unspecified) ===\n")
+        # Select prompt template based on model
+        template = get_template_for_model(model, user_gender)
+        print(f"\n=== USING {model.upper()} TEMPLATE ===\n")
             
         # Create prompt template
         prompt = PromptTemplate(
-            input_variables=["income", "expenses", "mood", "history", "input"],
+            input_variables=["income", "expenses", "mood", "history", "input", "goal_history", "user_background"],
             template=template
         )
         
@@ -132,13 +141,27 @@ async def chat(
                 for msg in history_messages[:-1]
             ])
         
+        # Get goal history from database if available
+        goal_history = ""
+        try:
+            goals = db.query(Goal).filter(Goal.user_id == int(user_id)).all()
+            if goals:
+                goal_history = "\n".join([
+                    f"- {goal.name}: {goal.saved_amount}/{goal.target_amount} (Deadline: {goal.deadline_months} months)"
+                    for goal in goals
+                ])
+        except Exception as e:
+            print(f"[WARNING] Failed to fetch goal history: {str(e)}")
+        
         # Prepare system prompt with context
         system_prompt = template.format(
             income=income,
             expenses=formatted_expenses,
             mood=mood,
             history=history_text,
-            input=message
+            input=message,
+            goal_history=goal_history,
+            user_background=f"User is {user_gender} with income {income}"
         ).strip()
         
         # Final messages list
@@ -153,7 +176,7 @@ async def chat(
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": "llama3-70b-8192",
                     "messages": messages,
                     "temperature": 0.7
                 }
@@ -225,4 +248,131 @@ async def chat(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while processing your request"
         )
+
+# Add endpoints to both routers
+@api_router.post('/chat')
+async def api_chat(request_data: Dict[str, Any], db: Session = Depends(get_db)):
+    """API endpoint for chat"""
+    return await handle_chat(request_data, db)
+
+@root_router.post('/chat')
+async def root_chat(request_data: Dict[str, Any], db: Session = Depends(get_db)):
+    """Root endpoint for chat"""
+    return await handle_chat(request_data, db)
+
+@api_router.post('/perma-chat')
+async def perma_chat(
+    request_data: Dict[str, Any], 
+    db: Session = Depends(get_db)
+):
+    """
+    Handle PERMA chat messages from users and provide wellness advice based on PERMA scores.
+    
+    Args:
+        request_data: Dictionary containing:
+            - perma_scores: Dictionary of PERMA scores
+            - summary: Summary of the user's mood/state
+            - userMessage: The user's message
+            - history: Previous chat history
+            
+    Returns:
+        Dictionary containing the assistant's response and timestamp
+    """
+    print(f"\n=== INCOMING PERMA CHAT REQUEST DATA ===\n{request_data}\n{'='*30}\n")
+    
+    try:
+        # Extract and validate input data
+        perma_scores = request_data.get('perma_scores', {})
+        summary = request_data.get('summary', '')
+        message = (request_data.get('userMessage') or '').strip()
+        history = request_data.get('history', '')
+        
+        # Input validation
+        if not message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail='Message is required.'
+            )
+            
+        if not isinstance(perma_scores, dict):
+            perma_scores = {}
+            
+        # Get Groq API key
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if not groq_api_key:
+            print("[ERROR] GROQ_API_KEY is missing or empty!", flush=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Server configuration error: Missing API key"
+            )
+            
+        # Prepare system prompt with PERMA context
+        system_prompt = f"""You are a wellness coach helping the user improve their PERMA scores.
+Current PERMA scores: {json.dumps(perma_scores)}
+Summary: {summary}
+Previous history: {history}
+
+Please provide personalized advice and support based on their PERMA scores and current situation.
+Focus on helping them improve their weakest areas while maintaining their strengths.
+Be empathetic, supportive, and practical in your responses.""".strip()
+        
+        # Prepare messages for Groq API
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": message}
+        ]
+        
+        # Call Groq API
+        try:
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {groq_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "llama3-70b-8192",
+                    "messages": messages,
+                    "temperature": 0.7
+                }
+            )
+            
+            print("[DEBUG] Groq API status:", response.status_code, flush=True)
+            print("[DEBUG] Groq API response:", response.text, flush=True)
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Groq API error: {response.text}"
+                )
+                
+            response_data = response.json()
+            response_text = response_data["choices"][0]["message"]["content"]
+            
+            return {
+                "response": response_text,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }
+            
+        except requests.RequestException as e:
+            print(f"[ERROR] Groq API request failed: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to communicate with AI service: {str(e)}"
+            )
+            
+    except HTTPException:
+        raise
+        
+    except Exception as e:
+        print(f"[ERROR] Error in PERMA chat endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing your request"
+        )
+
+# Export both routers
+router = APIRouter()
+router.include_router(api_router)
+router.include_router(root_router)
 

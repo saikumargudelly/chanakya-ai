@@ -3,6 +3,7 @@ import GoalList from './GoalList';
 import GoalModal from './GoalModal';
 import GoalItem from './GoalItem';
 import { useGoals } from '../context/GoalContext';
+import { GoalMasterChat } from './GoalMasterChat';
 
 function getGoalIdFromHash() {
   const hash = window.location.hash;
@@ -49,6 +50,7 @@ export default function GoalTracker() {
         <GoalList />
       )}
       <GoalModal isOpen={goalModalOpen} onClose={() => setGoalModalOpen(false)} />
+      <GoalMasterChat />
     </div>
   );
 }

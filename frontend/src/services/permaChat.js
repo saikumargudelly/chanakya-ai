@@ -4,7 +4,7 @@ import axios from 'axios';
 export async function getPermaTipConversation({ perma_scores, summary, userMessage, history }) {
   try {
     const token = localStorage.getItem('token');
-    const res = await axios.post('http://localhost:5001/perma-chat', {
+    const res = await axios.post('/api/perma-chat', {
       perma_scores,
       summary,
       userMessage,

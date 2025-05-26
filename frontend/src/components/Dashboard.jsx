@@ -309,114 +309,115 @@ const Dashboard = () => {
 
       {/* Restructured Main Content Grid (2x2 Layout) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Left: Goals (Swapped with Recent Transactions) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-          {/* Header with Goal Title and Add Button */}
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Goals</h3>
-            <button 
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              onClick={() => navigate('/goal-tracker')}
-            >
-              + Add Goal
-            </button>
-          </div>
-          {goals && goals.length > 0 ? (
-            <div className="space-y-4">
-              {/* Map over goals from GoalContext */}
-              {goals.map(goal => {
-                // Calculate progress here
-                const progress = (goal.savedAmount / goal.targetAmount) * 100 || 0;
-                return (
-                  <div key={goal.id} className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    {/* Flex container for Name and Percentage */}
-                    <div className="flex justify-between items-center mb-1">
-                      {/* Goal Name */}
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{goal.goalName}</div>
-                      {/* Percentage */}
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{progress.toFixed(0)}%</div>
+        {/* Left Column: Goals and Recent Transactions */}
+        <div className="space-y-6">
+          {/* Goals Box */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 h-fit">
+            {/* Header with Goal Title and Add Button */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Goals</h3>
+              <button 
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => navigate('/goal-tracker')}
+              >
+                + Add Goal
+              </button>
+            </div>
+            {goals && goals.length > 0 ? (
+              <div className="space-y-4">
+                {/* Map over goals from GoalContext */}
+                {goals.map(goal => {
+                  // Calculate progress here
+                  const progress = (goal.savedAmount / goal.targetAmount) * 100 || 0;
+                  return (
+                    <div key={goal.id} className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      {/* Flex container for Name and Percentage */}
+                      <div className="flex justify-between items-center mb-1">
+                        {/* Goal Name */}
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{goal.goalName}</div>
+                        {/* Percentage */}
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{progress.toFixed(0)}%</div>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div 
+                          className="h-full rounded-full bg-green-500"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="h-full rounded-full bg-green-500"
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-              <p>No goals set yet.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Top Right: Mood Picker and Chat - Merged */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 flex flex-col gap-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Ask Chanakya Anything</h3>
-          {/* Mood Picker Options */}
-          <QuickMoodPicker />
-          {/* Chanakya Chat */}
-          <ChatBox />
-        </div>
-
-        {/* Bottom Left: Recent Transactions (Swapped with Goals) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Recent Transactions</h2>
-            <div className="flex space-x-2">
-              <button 
-                className="px-3 py-1 text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors"
-                onClick={() => setActiveTab('overview')}
-              >
-                Overview
-              </button>
-              <button 
-                className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                onClick={() => setActiveTab('expenses')}
-              >
-                Expenses
-              </button>
-              <button 
-                className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                onClick={() => setActiveTab('income')}
-              >
-                Income
-              </button>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            {recentTransactions?.length > 0 ? (
-              recentTransactions.slice(0, 5).map((transaction) => (
-                <TransactionItem key={transaction.id} transaction={transaction} />
-              ))
+                  );
+                })}
+              </div>
             ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <p>No recent transactions found.</p>
-                <button 
-                  onClick={() => navigate('/add-transaction')}
-                  className="mt-2 text-purple-600 dark:text-purple-400 hover:underline"
-                >
-                  Add your first transaction
-                </button>
+              <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                <p>No goals set yet.</p>
               </div>
             )}
           </div>
-          
-          <button 
-            onClick={() => navigate('/transactions')}
-            className="mt-4 w-full py-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
-          >
-            View All Transactions <FiArrowRight className="ml-1" />
-          </button>
+
+          {/* Recent Transactions */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Recent Transactions</h2>
+              <div className="flex space-x-2">
+                <button 
+                  className="px-3 py-1 text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors"
+                  onClick={() => setActiveTab('overview')}
+                >
+                  Overview
+                </button>
+                <button 
+                  className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  onClick={() => setActiveTab('expenses')}
+                >
+                  Expenses
+                </button>
+                <button 
+                  className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  onClick={() => setActiveTab('income')}
+                >
+                  Income
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              {recentTransactions?.length > 0 ? (
+                recentTransactions.slice(0, 5).map((transaction) => (
+                  <TransactionItem key={transaction.id} transaction={transaction} />
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <p>No recent transactions found.</p>
+                  <button 
+                    onClick={() => navigate('/add-transaction')}
+                    className="mt-2 text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Add your first transaction
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => navigate('/transactions')}
+              className="mt-4 w-full py-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+            >
+              View All Transactions <FiArrowRight className="ml-1" />
+            </button>
+          </div>
         </div>
 
-        {/* Bottom Right: Placeholder or removed */}
-        {/* This spot is now empty or will be filled by other elements expanding */}
-        
+        {/* Right Column: Mood Picker and Chat */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 flex flex-col h-full">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex-shrink-0">Ask Chanakya Anything</h3>
+          {/* Mood Picker Options */}
+          <QuickMoodPicker className="flex-shrink-0 mb-4"/>
+          {/* Chanakya Chat */}
+          <div className="min-h-0 h-auto max-h-[920px] overflow-y-auto flex-1">
+            <ChatBox />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -18,7 +18,14 @@ const ChatBox = () => {
     setMessages((msgs) => [...msgs, userMsg]);
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5001/chat', { message: input });
+      const res = await axios.post('/api/chat', { 
+        message: input,
+        model: 'chanakya',
+        gender: 'neutral',
+        mood: 'neutral',
+        income: null,
+        expenses: {}
+      });
       setMessages((msgs) => [...msgs, { sender: 'chanakya', text: res.data.response }]);
     } catch (err) {
       setMessages((msgs) => [...msgs, { sender: 'chanakya', text: 'Sorry, something went wrong.' }]);
@@ -28,8 +35,8 @@ const ChatBox = () => {
   };
 
   return (
-    <>
-      <div className="mb-4 overflow-y-auto space-y-2 flex-1" style={{maxHeight:'300px'}}>
+    <div className="flex flex-col h-full">
+      <div className="mb-4 overflow-y-auto space-y-2 flex-1">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
             <span className={`inline-block px-4 py-2 rounded-2xl shadow text-base break-words
@@ -38,9 +45,9 @@ const ChatBox = () => {
         ))}
         <div ref={chatEndRef} />
       </div>
-      <form onSubmit={sendMessage} className="flex gap-2 mt-2">
+      <form onSubmit={sendMessage} className="flex gap-2 mt-2 flex-shrink-0">
         <input
-          className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-700 transition"
+          className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-700 transition text-gray-800 dark:text-white"
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Ask Chanakya anything..."
@@ -48,7 +55,7 @@ const ChatBox = () => {
         />
         <button type="submit" disabled={loading || !input.trim()} className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold shadow hover:from-indigo-600 hover:to-blue-700 disabled:opacity-50 transition">{loading ? '...' : 'Send'}</button>
       </form>
-    </>
+    </div>
   );
 };
 

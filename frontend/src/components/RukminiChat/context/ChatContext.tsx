@@ -136,13 +136,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }
     
     try {
       console.log('Sending user gender to backend:', user?.gender);
-      const response: { data: ChatApiResponse } = await api.post('/chat', {
+      const model = getModelName(user?.gender as Gender);
+      console.log('Using model:', model);
+      
+      const response: { data: ChatApiResponse } = await api.post('/api/chat', {
         user_id: user?.id,
         message: content,
         income: null,
         expenses: {},
         mood: mood,
-        gender: user?.gender
+        gender: user?.gender,
+        model: model
       });
 
       const assistantResponseText = response.data.response || 'Error: Could not get a response.';

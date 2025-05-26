@@ -181,7 +181,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 # Include routers
-app.include_router(chat_router, prefix="/chat", tags=["chat"])
+app.include_router(chat_router, tags=["chat"])
 app.include_router(budget_router, prefix="/budget", tags=["budget"])
 app.include_router(mood_router, prefix="/mood", tags=["mood"])
 # Auth routes already include the /auth prefix in their definitions
