@@ -355,7 +355,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     placeholder="Type a message..."
-                    className="w-full bg-gray-100 dark:bg-gray-700 rounded-full py-3 px-4 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full bg-gray-100 dark:bg-gray-700 rounded-full py-3 px-4 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-white"
                     disabled={isTyping}
                   />
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">

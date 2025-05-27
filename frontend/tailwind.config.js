@@ -7,5 +7,11 @@ module.exports = {
   theme: {
     extend: {},
   },
+  safelist: [
+    'text-blue-600',
+    'dark:text-blue-400',
+    'text-purple-600',
+    'dark:text-purple-400',
+  ],
   plugins: [],
 };

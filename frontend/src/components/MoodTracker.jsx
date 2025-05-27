@@ -121,8 +121,8 @@ function getTodaysQuestions(questionPool, min = 5, max = 8) {
 const PERMA_PILLARS = ['Positive Emotion', 'Engagement', 'Relationships', 'Meaning', 'Accomplishment'];
 
 const MoodTracker = () => {
-  const { user } = useAuth();
-  const user_id = user?.userId ? Number(user.userId) : user?.id ? Number(user.id) : user?.user_id ? Number(user.user_id) : 'default';
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const user_id = user?.userId ? Number(user.userId) : user?.id ? Number(user.id) : user?.user_id ? Number(user.user_id) : null;
   const todaysQuestions = useMemo(() => getTodaysQuestions(PERMA_QUESTIONS, 5, 8), []);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState(Array(todaysQuestions.length).fill(null));
@@ -161,9 +161,9 @@ const MoodTracker = () => {
   // Check if user can do another check-in today
   useEffect(() => {
     async function checkDailyLimit() {
-      if (!user_id || !user) {
-        setError('Please log in to use the mood tracker.');
-        setIsLoading(false);
+      if (isAuthLoading || !user_id) {
+        // Wait for auth to load or user_id to be available
+        setIsLoading(false); // Ensure component loading state is also false while waiting
         return;
       }
       setIsLoading(true);
@@ -186,7 +186,7 @@ const MoodTracker = () => {
       }
     }
     checkDailyLimit();
-  }, [user_id, user]);
+  }, [user_id, isAuthLoading]);
 
   // Format time remaining until next check-in
   const getTimeUntilNextCheckIn = () => {
@@ -201,7 +201,10 @@ const MoodTracker = () => {
   // Fetch historical moods on mount
   useEffect(() => {
     async function fetchHistoricalMoods() {
-      if (!user_id) return;
+      if (isAuthLoading || !user_id) {
+         // Wait for auth to load or user_id to be available
+        return;
+      }
       try {
         const recentSessions = await fetchRecentMoodSessions(user_id, 5);
         setHistoricalMoods(recentSessions);
@@ -209,9 +212,9 @@ const MoodTracker = () => {
         // Calculate trends for each PERMA pillar
         const trends = {};
         PERMA_PILLARS.forEach(pillar => {
-          const scores = recentSessions.map(session => session.perma_scores[pillar] || 0);
-          const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-          const trend = scores.map((score, i) => i === 0 ? 0 : score - scores[i - 1]);
+          const scores = recentSessions.map(session => session.perma_scores?.[pillar] || 0); // Added safe access
+          const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0; // Added division by zero check
+          const trend = scores.map((score, i) => i === 0 ? 0 : score - (scores[i - 1] || 0)); // Added safe access
           trends[pillar] = {
             average: avg,
             trend: trend,
@@ -225,7 +228,7 @@ const MoodTracker = () => {
       }
     }
     fetchHistoricalMoods();
-  }, [user_id]);
+  }, [user_id, isAuthLoading]); // Add isAuthLoading to dependency array
 
   // Scroll chat to bottom when new messages arrive
   useEffect(() => {
@@ -244,8 +247,10 @@ const MoodTracker = () => {
   };
 
   const handleSubmit = async () => {
-    if (!canCheckIn) {
-      setError('You have reached your daily limit of 2 mood check-ins.');
+    if (!canCheckIn || isAuthLoading || !user_id) {
+       if (!canCheckIn) setError('You have reached your daily limit of 2 mood check-ins.');
+       else if (isAuthLoading) setError('Authentication is still loading.');
+       else if (!user_id) setError('User not logged in.');
       return;
     }
 

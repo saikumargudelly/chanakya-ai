@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ResetPasswordModal from './ResetPasswordModal';
 import { useAuth } from './AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, user } = useAuth();
   const [showReset, setShowReset] = useState(false);
   const [email, setEmail] = useState('');
@@ -18,6 +19,15 @@ export default function Login() {
       navigate('/');
     }
   }, [user, navigate]);
+
+  // Check for error in URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const errorParam = params.get('error');
+    if (errorParam === 'session_expired') {
+      setError('Your session has expired. Please log in again.');
+    }
+  }, [location]);
 
   const handleSubmit = async (e) => {
     console.log('Login button clicked');

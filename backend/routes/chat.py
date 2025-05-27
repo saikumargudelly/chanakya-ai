@@ -61,6 +61,7 @@ async def handle_chat(request_data: Dict[str, Any], db: Session = Depends(get_db
             - mood: (Optional) User's current mood
             - gender: (Optional) User's gender ('male', 'female', or 'neutral')
             - model: (Optional) The AI model to use ('rukhmini', 'krishna', 'chanakya', or 'goal_master')
+            - timezone: (Optional) User's browser timezone string (e.g., 'America/New_York')
             
     Returns:
         Dictionary containing the assistant's response and timestamp
@@ -76,8 +77,9 @@ async def handle_chat(request_data: Dict[str, Any], db: Session = Depends(get_db
         mood = request_data.get('mood', 'neutral')
         user_gender = request_data.get('gender', 'neutral').lower()
         model = request_data.get('model', 'chanakya').lower()
+        user_timezone = request_data.get('timezone', 'UTC') # Extract timezone, default to UTC
         
-        print(f"Extracted gender: {user_gender}, model: {model}")  # Debug log
+        print(f"Extracted gender: {user_gender}, model: {model}, timezone: {user_timezone}")  # Debug log
         
         # Input validation
         if not message:
@@ -161,7 +163,7 @@ async def handle_chat(request_data: Dict[str, Any], db: Session = Depends(get_db
             history=history_text,
             input=message,
             goal_history=goal_history,
-            user_background=f"User is {user_gender} with income {income}"
+            user_background=f"User is {user_gender} with income {income}. User's timezone is {user_timezone}."
         ).strip()
         
         # Final messages list
@@ -274,6 +276,7 @@ async def perma_chat(
             - summary: Summary of the user's mood/state
             - userMessage: The user's message
             - history: Previous chat history
+            - timezone: (Optional) User's browser timezone string
             
     Returns:
         Dictionary containing the assistant's response and timestamp
@@ -286,7 +289,10 @@ async def perma_chat(
         summary = request_data.get('summary', '')
         message = (request_data.get('userMessage') or '').strip()
         history = request_data.get('history', '')
+        user_timezone = request_data.get('timezone', 'UTC') # Extract timezone, default to UTC
         
+        print(f"Extracted timezone for PERMA chat: {user_timezone}") # Debug log
+
         # Input validation
         if not message:
             raise HTTPException(
@@ -306,8 +312,9 @@ async def perma_chat(
                 detail="Server configuration error: Missing API key"
             )
             
-        # Prepare system prompt with PERMA context
+        # Prepare system prompt with PERMA context and timezone
         system_prompt = f"""You are a wellness coach helping the user improve their PERMA scores.
+User's timezone is {user_timezone}.
 Current PERMA scores: {json.dumps(perma_scores)}
 Summary: {summary}
 Previous history: {history}

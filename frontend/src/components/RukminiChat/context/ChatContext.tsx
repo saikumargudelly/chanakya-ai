@@ -139,6 +139,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }
       const model = getModelName(user?.gender as Gender);
       console.log('Using model:', model);
       
+      // Get user timezone
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      console.log('Sending user timezone to backend:', userTimezone);
+
       const response: { data: ChatApiResponse } = await api.post('/api/chat', {
         user_id: user?.id,
         message: content,
@@ -146,7 +150,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }
         expenses: {},
         mood: mood,
         gender: user?.gender,
-        model: model
+        model: model,
+        timezone: userTimezone, // Include timezone in the request
       });
 
       const assistantResponseText = response.data.response || 'Error: Could not get a response.';

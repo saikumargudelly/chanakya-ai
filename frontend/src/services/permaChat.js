@@ -4,11 +4,16 @@ import axios from 'axios';
 export async function getPermaTipConversation({ perma_scores, summary, userMessage, history }) {
   try {
     const token = localStorage.getItem('token');
+    // Get user timezone
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    console.log('Sending user timezone to backend for PERMA chat:', userTimezone);
+
     const res = await axios.post('/api/perma-chat', {
       perma_scores,
       summary,
       userMessage,
       history,
+      timezone: userTimezone, // Include timezone in the request
     }, {
       headers: {
         'Authorization': `Bearer ${token}`,

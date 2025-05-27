@@ -72,6 +72,10 @@ API.interceptors.response.use(
           return API(originalRequest);
         })
         .catch(err => {
+          // Clear auth data and redirect to login
+          localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
+          window.location.href = '/login?error=session_expired';
           return Promise.reject(err);
         });
       }
@@ -87,10 +91,20 @@ API.interceptors.response.use(
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
           processQueue(null, newToken);
           return API(originalRequest);
+        } else {
+          // If refresh token fails, clear auth data and redirect to login
+          localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
+          window.location.href = '/login?error=session_expired';
+          return Promise.reject(new Error('Session expired. Please log in again.'));
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
+        // Clear auth data
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+        // Redirect to login with error message
+        window.location.href = '/login?error=session_expired';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

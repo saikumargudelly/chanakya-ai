@@ -16,21 +16,8 @@ function decodeJWT(token) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => {
-    // Get token from localStorage on initial load
-    const storedToken = localStorage.getItem('token');
-    return storedToken || null;
-  });
-
-  // On mount, always clear user data if no valid token exists
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    if (!storedToken) {
-      localStorage.removeItem('user'); // In case you store user separately
-      setUser(null);
-    }
-  }, []);
-  const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // Start as true
   const [logoutMsg, setLogoutMsg] = useState('');
   // Store logout timeout id
   const logoutTimeoutRef = React.useRef();
@@ -39,36 +26,27 @@ export function AuthProvider({ children }) {
     logoutService();
     setToken(null);
     setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expiry');
     if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
   }, []);
 
-  // Check token and fetch user profile on mount and when token changes
+  // Check token and fetch user profile on mount
   useEffect(() => {
     const checkAuth = async () => {
-      setIsLoading(true);
-      const currentToken = localStorage.getItem('token');
+      const storedToken = localStorage.getItem('token');
       
-      // If we have a token in state but not in localStorage, sync them
-      if (token && !currentToken) {
-        localStorage.setItem('token', token);
-      }
-      // If we have a token in localStorage but not in state, update state
-      else if (!token && currentToken) {
-        setToken(currentToken);
-        setIsLoading(false);
-        return;
-      }
-      // If no token, set loading to false and return
-      else if (!token) {
+      if (!storedToken) {
         setUser(null);
-        localStorage.removeItem('token'); // Always clear any stray tokens
-        localStorage.removeItem('user'); // Always clear any stray user data
-        setIsLoading(false);
+        setIsLoading(false); // No token, loading is done
         return;
       }
+
+      setToken(storedToken);
       
       try {
-        const decoded = decodeJWT(token);
+        const decoded = decodeJWT(storedToken);
         if (!decoded || !decoded.exp) {
           throw new Error('Invalid token format');
         }
@@ -80,12 +58,12 @@ export function AuthProvider({ children }) {
           throw new Error('Token expired');
         }
         
-        // Fetch user profile data
+        // Fetch user profile data using the token
         const userProfile = await getProfile();
         console.log('Fetched user profile:', userProfile);
         const userData = {
           ...userProfile,
-          token,
+          token: storedToken,
           username: userProfile.email.split('@')[0],
           userId: userProfile.id,
           user_id: userProfile.id
@@ -97,28 +75,25 @@ export function AuthProvider({ children }) {
         // Set timeout for auto-logout
         if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
         const msUntilExpiry = (decoded.exp - now) * 1000;
+         // Add a small buffer to auto-logout before actual expiry
         logoutTimeoutRef.current = setTimeout(() => {
           setLogoutMsg('Session expired. Please log in again.');
           logout();
-        }, msUntilExpiry);
+        }, msUntilExpiry > 5000 ? msUntilExpiry - 5000 : msUntilExpiry);
         
       } catch (error) {
         console.error('Authentication check failed:', error);
-        // Clear invalid token
-        if (token) {
-          localStorage.removeItem('token');
-          setToken(null);
-        }
+        // Clear invalid token if check fails
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('token_expiry');
+        setToken(null);
         setUser(null);
-        
-        // Only show error message if we had a token
-        if (token) {
-          setLogoutMsg(error.message === 'Token expired' 
-            ? 'Your session has expired. Please log in again.' 
-            : 'Please log in to continue.');
-        }
+        setLogoutMsg(error.message === 'Token expired' 
+          ? 'Your session has expired. Please log in again.' 
+          : 'Please log in to continue.');
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Loading is done after check
       }
     };
     
@@ -128,70 +103,60 @@ export function AuthProvider({ children }) {
     return () => {
       if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
     };
-  }, [token, logout]);
+  }, [logout]); // Dependency array includes logout
 
   const login = useCallback(async (email, password) => {
+    setIsLoading(true); // Set loading true on login attempt
     try {
-      // If we already have a token, just validate it
-      const existingToken = localStorage.getItem('token');
-      if (existingToken) {
-        try {
-          const decoded = decodeJWT(existingToken);
-          if (decoded && decoded.exp && (decoded.exp > Date.now() / 1000)) {
-            // Token is valid, get user data
-            const userProfile = await getProfile();
-            const userData = {
-              ...userProfile,
-              token: existingToken,
-              username: userProfile.email.split('@')[0],
-              userId: userProfile.id,
-              user_id: userProfile.id
-            };
-            setUser(userData);
-            return true;
-          }
-        } catch (e) {
-          console.warn('Existing token validation failed:', e);
-          // Continue with normal login if token validation fails
-        }
-      }
-
-      // If no valid token, perform login
-      const { token, user } = await loginService(email, password);
+       // Clear any existing tokens before new login
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expiry');
+      setToken(null);
+      setUser(null);
       
-      if (!token) {
+      const { token: newToken, user: userData } = await loginService(email, password);
+      
+      if (!newToken) {
         throw new Error('No token received from login service');
       }
       
-      // Store the token
-      localStorage.setItem('token', token);
-      setToken(token);
+      // Store the new token
+      localStorage.setItem('token', newToken);
+      setToken(newToken);
       
-      // Set user data
-      const userData = {
-        ...user,
-        token,
-        username: user.email.split('@')[0],
-        userId: user.id,
-        user_id: user.id
+      // Set user data (loginService should return basic user info)
+      const fullUserData = {
+        ...userData,
+        token: newToken,
+        username: userData.email.split('@')[0],
+        userId: userData.id,
+        user_id: userData.id
       };
       
-      console.log('Login successful - User data:', userData);
-      setUser(userData);
-      console.log('AuthContext: user data set after login:', userData);
+      console.log('Login successful - User data:', fullUserData);
+      setUser(fullUserData);
+      console.log('AuthContext: user data set after login:', fullUserData);
       setLogoutMsg('');
+      
+      // getProfile is not strictly necessary after login if login returns enough data
+      // but can be added here if needed for more detailed profile info
       
       return true;
     } catch (error) {
       console.error('Login failed:', error);
-      // Clear any invalid tokens
+       // Clear any invalid tokens on failure
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expiry');
       setToken(null);
       setUser(null);
       setLogoutMsg(error.message || 'Login failed. Please try again.');
       return false;
+    } finally {
+      setIsLoading(false); // Loading is done after login attempt
     }
-  }, []);
+  }, [logout]); // Dependency array includes logout
 
   const value = {
     user,
@@ -200,7 +165,7 @@ export function AuthProvider({ children }) {
     login,
     logout,
     logoutMsg,
-    setToken,
+    setToken, // Keep setToken for external use if needed, though internal state should manage it
     updateUser: (newUserData) => {
       setUser(prevUser => ({
         ...prevUser,

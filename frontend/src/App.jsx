@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { GoalProvider, useGoals } from './context/GoalContext';
 import RukminiChat from './components/RukminiChat';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Layout Components
 import Sidebar from './components/Sidebar';
@@ -32,30 +33,25 @@ const queryClient = new QueryClient({
   },
 });
 
+// Modern loading spinner component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+    <div className="relative">
+      <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" style={{ animationDelay: '-0.5s' }}></div>
+    </div>
+  </div>
+);
+
 // A wrapper for protected routes
 const ProtectedRoute = ({ children }) => {
   const { user, isLoading, token } = useAuth();
   const location = useLocation();
 
-  // Show loading spinner while checking auth state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+  if (isLoading || (!user && token)) {
+    return <LoadingSpinner />;
   }
 
-  // If no user but we have a token, we're still loading
-  if (!user && token) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  // Redirect to login if not authenticated
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -63,22 +59,16 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// A wrapper for public-only routes (like login, signup)
+// A wrapper for public-only routes
 const PublicRoute = ({ children }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/';
 
-  // Show loading spinner while checking auth state
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
-  // If user is already authenticated, redirect to home or the intended page
   if (user) {
     return <Navigate to={from} replace />;
   }
@@ -86,8 +76,20 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
-// Main App content with layout
+// Page transition wrapper
+const PageTransition = ({ children }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -20 }}
+    transition={{ duration: 0.3, ease: "easeInOut" }}
+    className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800"
+  >
+    {children}
+  </motion.div>
+);
 
+// Main App content with layout
 function AppContent() {
   const { user } = useAuth();
   const { goals } = useGoals();
@@ -95,7 +97,6 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
 
-  // Determine if the current page is public (no layout)
   const isPublicPage = ["/home", "/", "/login", "/signup"].includes(location.pathname);
 
   useEffect(() => {
@@ -117,8 +118,7 @@ function AppContent() {
   }, [location]);
 
   return (
-    <>
-      {/* Render layout only on protected (non-public) pages */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
       {!isPublicPage && (
         <>
           <Sidebar ref={sidebarRef} isOpen={isSidebarOpen} />
@@ -126,50 +126,52 @@ function AppContent() {
           <RukminiChat />
         </>
       )}
-      <main className={!isPublicPage ? "pl-64 pt-20 min-h-screen bg-gray-50 dark:bg-gray-900" : ""}>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-          <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+      <main className={!isPublicPage ? "pl-64 pt-20 min-h-screen transition-all duration-300" : ""}>
+        <AnimatePresence mode="wait" initial={false}>
+          <PageTransition key={location.pathname}>
+            <Routes location={location} key={location.pathname}>
+              {/* Public routes */}
+              <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
 
-          {/* Protected routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/budget-analytics" element={
-            <ProtectedRoute>
-              <BudgetAnalytics />
-            </ProtectedRoute>
-          } />
-          <Route path="/financial-position" element={
-            <ProtectedRoute>
-              <FinancialPosition />
-            </ProtectedRoute>
-          } />
-          <Route path="/mood" element={
-            <ProtectedRoute>
-              <MoodTracker />
-            </ProtectedRoute>
-          } />
-          <Route path="/goal-tracker" element={
-            <ProtectedRoute>
-              <GoalTracker />
-            </ProtectedRoute>
-          } />
-          {/* Add more protected routes as needed */}
+              {/* Protected routes */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/budget-analytics" element={
+                <ProtectedRoute>
+                  <BudgetAnalytics />
+                </ProtectedRoute>
+              } />
+              <Route path="/financial-position" element={
+                <ProtectedRoute>
+                  <FinancialPosition />
+                </ProtectedRoute>
+              } />
+              <Route path="/mood" element={
+                <ProtectedRoute>
+                  <MoodTracker />
+                </ProtectedRoute>
+              } />
+              <Route path="/goal-tracker" element={
+                <ProtectedRoute>
+                  <GoalTracker />
+                </ProtectedRoute>
+              } />
 
-          {/* 404 fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+              {/* 404 fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </PageTransition>
+        </AnimatePresence>
       </main>
-    </>
+    </div>
   );
 }
-
 
 // Main App component with providers
 function App() {

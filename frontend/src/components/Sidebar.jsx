@@ -1,14 +1,14 @@
 import React, { useState, useEffect, forwardRef } from 'react';
 import { NavLink as BaseNavLink, useLocation } from 'react-router-dom';
 import { FiHome, FiPieChart, FiDollarSign, FiSmile, FiTarget, FiMessageSquare } from 'react-icons/fi';
-import { useAuth } from './AuthContext'; // Added missing import
+import { useAuth } from './AuthContext';
 
 // Create a forwardRef wrapper for NavLink
 const NavLink = forwardRef((props, ref) => (
   <BaseNavLink {...props} ref={ref} />
 ));
 
-const Sidebar = () => {
+const Sidebar = forwardRef((props, ref) => {
   const location = useLocation();
   const { token } = useAuth();
 
@@ -22,7 +22,7 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="fixed top-0 left-0 z-40 h-screen w-64 pt-20 transition-transform -translate-x-full bg-gray-800 border-r border-gray-700 sm:translate-x-0">
+    <aside ref={ref} className="fixed top-0 left-0 z-40 h-screen w-64 pt-20 transition-transform -translate-x-full bg-gray-800 border-r border-gray-700 sm:translate-x-0">
       <div className="h-full px-3 pb-4 overflow-y-auto bg-gray-800">
         <div className="space-y-2 font-medium">
           {navItems.map((item) => (
@@ -54,6 +54,8 @@ const Sidebar = () => {
       </div>
     </aside>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
 
 export default Sidebar;
