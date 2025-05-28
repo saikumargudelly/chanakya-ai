@@ -1,6 +1,6 @@
 import React, { useState, useEffect, forwardRef } from 'react';
 import { NavLink as BaseNavLink, useLocation } from 'react-router-dom';
-import { FiHome, FiPieChart, FiDollarSign, FiSmile, FiTarget, FiMessageSquare } from 'react-icons/fi';
+import { FiHome, FiPieChart, FiDollarSign, FiSmile, FiTarget, FiMessageSquare, FiUser, FiSettings, FiCreditCard, FiLogOut, FiCalendar, FiMessageCircle } from 'react-icons/fi';
 import { useAuth } from './AuthContext';
 
 // Create a forwardRef wrapper for NavLink
@@ -22,17 +22,20 @@ const Sidebar = forwardRef((props, ref) => {
   ];
 
   return (
-    <aside ref={ref} className="fixed top-0 left-0 z-40 h-screen w-64 pt-20 transition-transform -translate-x-full bg-gray-800 border-r border-gray-700 sm:translate-x-0">
-      <div className="h-full px-3 pb-4 overflow-y-auto bg-gray-800">
+    <aside ref={ref} className="fixed top-0 left-0 z-40 h-screen w-64 pt-5 transition-transform bg-white border-r border-gray-200 sm:translate-x-0 dark:bg-gray-800 dark:border-gray-700">
+      <div className="flex items-center px-6 mb-6">
+        {/* Placeholder for Logo */}
+        <div className="text-2xl font-bold text-teal-500">Chanakya AI</div>
+      </div>
+      <div className="h-full px-3 pb-4 overflow-y-auto">
         <div className="space-y-2 font-medium">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={!item.disabled ? item.to : '#'}
-              className={`flex items-center p-3 rounded-lg group ${
-                location.pathname === item.to
-                  ? 'text-white bg-gray-700'
-                  : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${location.pathname === item.to
+                ? 'bg-teal-500 text-white shadow-md'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
               } ${item.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <div className="flex items-center">
@@ -47,10 +50,6 @@ const Sidebar = forwardRef((props, ref) => {
             </NavLink>
           ))}
         </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 p-4 text-center text-xs text-gray-500 border-t border-gray-700">
-        <p>AI Financial Coach</p>
-        <p className="mt-1 text-gray-600">v1.0.0</p>
       </div>
     </aside>
   );

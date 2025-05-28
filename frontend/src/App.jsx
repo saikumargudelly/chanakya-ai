@@ -129,43 +129,45 @@ function AppContent() {
       <main className={!isPublicPage ? "pl-64 pt-20 min-h-screen transition-all duration-300" : ""}>
         <AnimatePresence mode="wait" initial={false}>
           <PageTransition key={location.pathname}>
-            <Routes location={location} key={location.pathname}>
-              {/* Public routes */}
-              <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
-              <Route path="/home" element={<Home />} />
-              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-              <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+            <div className="p-4">
+              <Routes location={location} key={location.pathname}>
+                {/* Public routes */}
+                <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+                <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
 
-              {/* Protected routes */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/budget-analytics" element={
-                <ProtectedRoute>
-                  <BudgetAnalytics />
-                </ProtectedRoute>
-              } />
-              <Route path="/financial-position" element={
-                <ProtectedRoute>
-                  <FinancialPosition />
-                </ProtectedRoute>
-              } />
-              <Route path="/mood" element={
-                <ProtectedRoute>
-                  <MoodTracker />
-                </ProtectedRoute>
-              } />
-              <Route path="/goal-tracker" element={
-                <ProtectedRoute>
-                  <GoalTracker />
-                </ProtectedRoute>
-              } />
+                {/* Protected routes */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/budget-analytics" element={
+                  <ProtectedRoute>
+                    <BudgetAnalytics />
+                  </ProtectedRoute>
+                } />
+                <Route path="/financial-position" element={
+                  <ProtectedRoute>
+                    <FinancialPosition />
+                  </ProtectedRoute>
+                } />
+                <Route path="/mood" element={
+                  <ProtectedRoute>
+                    <MoodTracker />
+                  </ProtectedRoute>
+                } />
+                <Route path="/goal-tracker" element={
+                  <ProtectedRoute>
+                    <GoalTracker />
+                  </ProtectedRoute>
+                } />
 
-              {/* 404 fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                {/* 404 fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
           </PageTransition>
         </AnimatePresence>
       </main>
