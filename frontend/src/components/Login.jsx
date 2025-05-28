@@ -1,198 +1,202 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import ResetPasswordModal from './ResetPasswordModal';
-import { useAuth } from './AuthContext';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Lock, User, Eye, EyeOff, Key } from 'lucide-react'; // Assuming lucide-react for icons
+import { useAuth } from './AuthContext'; // Import useAuth
+import { login as authLogin } from '../services/authService'; // Import login service
 
-export default function Login() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { login, user } = useAuth();
-  const [showReset, setShowReset] = useState(false);
+const Login = () => {
+  const navigate = useNavigate(); // Use navigate hook
+  const { user, login: contextLogin } = useAuth(); // Get login function from AuthContext
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(''); // State for error messages
+  const [isLoading, setIsLoading] = useState(false); // State for loading indicator
 
-  // Redirect if user is already logged in
-  useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
+  // Redirect if user is already logged in (Optional, based on previous logic)
+  // useEffect(() => {
+  //   if (user) {
+  //     navigate('/');
+  //   }
+  // }, [user, navigate]);
 
-  // Check for error in URL parameters
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const errorParam = params.get('error');
-    if (errorParam === 'session_expired') {
-      setError('Your session has expired. Please log in again.');
-    }
-  }, [location]);
-
-  const handleSubmit = async (e) => {
-    console.log('Login button clicked');
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
+
     try {
-      console.log('Login form submitted with email:', email);
-      
-      // Prepare form data for URL-encoded format
-      const formData = new URLSearchParams();
-      formData.append('username', email); // OAuth2 expects 'username', even if it's an email
-      formData.append('password', password);
-      formData.append('grant_type', 'password');
-      
-      console.log('Sending login request to /auth/token');
-      
-      // Make the login request with proper headers
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/auth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-        },
-        credentials: 'include',
-        mode: 'cors',
-        body: formData.toString(),
-      });
-      
-      const data = await response.json();
-      console.log('Login response:', data);
-      
-      if (!response.ok) {
-        throw new Error(data.detail || 'Login failed. Please check your credentials.');
-      }
-      
-      if (data.access_token) {
-        // Store the token
-        localStorage.setItem('token', data.access_token);
-        
-        // Call the login function from AuthContext to update the auth state
-        const loginSuccess = await login(email, password);
-        
-        if (loginSuccess) {
-          console.log('Login successful, redirecting to dashboard...');
-          navigate('/dashboard', { replace: true });
-        } else {
-          throw new Error('Failed to initialize user session.');
-        }
+      console.log('Attempting login for:', email);
+      // Call the login service function
+      const loginSuccess = await authLogin(email, password);
+
+      if (loginSuccess) {
+        console.log('Login successful, updating context and redirecting.');
+        // Update auth context state
+        await contextLogin(email, password); // Assuming contextLogin fetches user data after token is received
+        navigate('/dashboard', { replace: true }); // Redirect to dashboard or desired page
       } else {
-        throw new Error('No access token received from server');
+         // authService.login should throw an error on failure, but added check just in case
+         throw new Error('Login failed. Please check your credentials.');
       }
+
     } catch (err) {
       console.error('Login error:', err);
-      // Handle different types of errors
-      if (err.response) {
-        setError(err.response.data?.detail || 'Login failed. Please try again.');
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Login failed. Please try again.');
-      }
+      // Display specific error message if available, otherwise a generic one
+      setError(err.response?.data?.detail || err.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-gray-800 p-8 rounded-lg shadow-lg">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-white">Sign in to your account</h2>
-          <p className="mt-2 text-center text-sm text-gray-400">
-            Or{' '}
-            <button
-              onClick={() => navigate('/signup')}
-              className="font-medium text-blue-400 hover:text-blue-300 focus:outline-none"
-            >
-              create a new account
-            </button>
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-white to-purple-200 flex items-center justify-center p-4">
+      {/* Top Navigation Bar */}
+      <nav className="fixed top-0 left-0 right-0 bg-white bg-opacity-80 backdrop-filter backdrop-blur-lg shadow-md z-50 p-4 flex items-center justify-between">
+        {/* App Title */}
+        <div className="text-lg font-bold text-purple-700">
+          Chanakya AI Wellness Companion
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">Email address</label>
+        {/* Navigation Links */}
+        <div className="flex items-center space-x-4">
+          <Link to="/" className="text-gray-600 hover:text-purple-700 transition-colors">
+            Home
+          </Link>
+          {/* Assuming you have a /contact route */}
+          <Link to="/contact" className="text-gray-600 hover:text-purple-700 transition-colors">
+            Contact
+          </Link>
+          <Link to="/signup" className="text-gray-600 hover:text-purple-700 transition-colors">
+            Sign Up
+          </Link>
+        </div>
+      </nav>
+
+      <div className="relative bg-white rounded-xl shadow-xl p-8 max-w-sm w-full">
+        {/* Background elements - simplified representation */}
+        <div className="absolute -top-12 -left-16 w-32 h-32 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
+        <div className="absolute -bottom-8 -right-12 w-32 h-32 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
+
+        <div className="flex justify-center mb-6">
+          {/* Placeholder for illustration - A simple lock/key icon for now */}
+          <div className="bg-purple-500 text-white p-3 rounded-full">
+             <Lock size={30} />
+          </div>
+        </div>
+
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Log in</h2>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="sr-only">Email Address</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
-                id="email-address"
-                name="email"
+                id="email"
                 type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-700 text-white placeholder-gray-500 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                placeholder="Email Address"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
+                onChange={(e) => setEmail(e.target.value)}
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-700 text-white placeholder-gray-500 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+                disabled={isLoading} // Disable input while loading
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
               />
             </div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
+          
+          <div>
+            <label htmlFor="password" className="sr-only">Password</label>
+            <div className="relative">
+               <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={isLoading} // Disable input while loading
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+              />
               <button
                 type="button"
-                className="text-sm text-blue-400 hover:text-blue-300"
-                onClick={() => setShowReset(true)}
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
               >
-                Forgot your password?
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
           </div>
 
-          {error && (
-            <div className="rounded-md bg-red-900/50 border border-red-700 p-4">
-              <div className="text-sm text-red-200">{error}</div>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={isLoading} // Disable input while loading
+                className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <label htmlFor="rememberMe" className="ml-2 text-gray-600">Remember me</label>
             </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
-            >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Signing in...
-                </span>
-              ) : 'Sign in'}
-            </button>
+            <a href="#" className="text-purple-600 hover:text-purple-800 text-sm">Forgot Password?</a>
           </div>
+
+           {error && (
+             <div className="rounded-md bg-red-100 border border-red-400 p-3 text-center">
+               <div className="text-sm text-red-700">{error}</div>
+             </div>
+           )}
+
+          <button
+            type="submit"
+            disabled={isLoading} // Disable button while loading
+            className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+          >
+             {isLoading ? (
+                 <span className="flex items-center justify-center">
+                   <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path>
+                   </svg>
+                   Logging in...
+                 </span>
+               ) : 'Log in'}
+          </button>
         </form>
+
+        <div className="mt-6 text-center text-sm">
+          <p className="text-gray-600">Don't have an account? <Link to="/signup" className="text-purple-600 hover:text-purple-800 font-bold">Sign up</Link></p>
+        </div>
+
+        {/* Basic animation styles */}
+        <style jsx>{`
+          @keyframes blob {
+            0% {
+              transform: translate(0px, 0px) scale(1);
+            }
+            33% {
+              transform: translate(30px, -40px) scale(1.1);
+            }
+            66% {
+              transform: translate(-20px, 20px) scale(0.9);
+            }
+            100% {
+              transform: translate(0px, 0px) scale(1);
+            }
+          }
+          .animate-blob {
+            animation: blob 7s infinite;
+          }
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+        `}</style>
       </div>
-      
-      {showReset && (
-        <ResetPasswordModal 
-          isOpen={showReset} 
-          onClose={() => {
-            setShowReset(false);
-            // Reset any error/loading states when closing
-            setError('');
-            setIsLoading(false);
-          }} 
-        />
-      )}
     </div>
   );
-}
+};
+
+export default Login;

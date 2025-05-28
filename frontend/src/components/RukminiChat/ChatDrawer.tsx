@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion';
 import { useChat } from './context/ChatContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { MoodType } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { QuickReplyBar } from './QuickReplyBar';
@@ -147,6 +148,8 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
     sendMessage,
   } = useChat();
   
+  const { user } = useAuth();
+
   const [inputValue, setInputValue] = React.useState('');
   const [isMinimized, setIsMinimized] = React.useState(false);
   const [currentMood, setCurrentMood] = React.useState<MoodType>('neutral');
@@ -210,6 +213,14 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
+  // Add initial greeting message when chat opens and messages are empty
+  useEffect(() => {
+    if (isOpen && messages.length === 0 && user?.first_name) {
+      // Send an initial message to trigger a persona-specific greeting from the backend
+      sendMessage("Hello");
+    }
+  }, [isOpen, messages.length, user?.first_name, sendMessage]); // Depend on isOpen, messages length, user first name, and sendMessage
 
   const handleSendMessage = useCallback(() => {
     const trimmedValue = inputValue.trim();

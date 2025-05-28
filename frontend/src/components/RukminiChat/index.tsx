@@ -2,6 +2,7 @@ import * as React from 'react';
 import { ChatProvider, useChat } from './context/ChatContext';
 import ChatDrawer from './ChatDrawer';
 import Draggable from './Draggable';
+import { AuthProvider } from '../../contexts/AuthContext';
 
 // Dark mode hook
 const useDarkMode = () => {
@@ -44,7 +45,9 @@ const RukminiChatContent: React.FC = () => {
           <span className="text-2xl">🧙</span>
         </div>
       </Draggable>
-      <ChatDrawer />
+      <AuthProvider>
+        <ChatDrawer />
+      </AuthProvider>
     </>
   );
 };

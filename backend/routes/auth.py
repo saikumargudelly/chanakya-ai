@@ -315,7 +315,7 @@ async def login_for_access_token(
     """
     logger.info(f"Login attempt for user: {form_data.username}")
     
-    # Verify user credentials
+    # Authenticate the user with username and password
     user = get_user(db, form_data.username)
     if not user or not verify_password(form_data.password, user.password_hash):
         logger.warning(f"Failed login attempt for user: {form_data.username}")
@@ -332,35 +332,31 @@ async def login_for_access_token(
             detail="Inactive user",
         )
     
-    # Create access token with both email and user_id claims
+    # Delete any existing active refresh tokens for this user
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == user.id,
+        RefreshToken.is_active == True
+    ).delete()
+    db.commit() # Commit the deletion of old tokens
+
+    # Create new access and refresh tokens
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={
-            "sub": user.email,  # Standard JWT subject claim
-            "email": user.email,  # Additional email claim for easier access
-            "user_id": user.id,   # User ID for quick reference
-            "type": "access"      # Token type
+            "sub": str(user.id),
+            "email": user.email,
+            "user_id": user.id, # Include user_id in access token payload
         },
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
     )
     
-    # Create refresh token with user ID
-    refresh_token = create_refresh_token(user.id, db)
-    
+    # Create a new refresh token and save it to the database
+    refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_token = create_refresh_token(user.id, db, expires_delta=refresh_token_expires)
+
     logger.info(f"Successful login for user: {user.email}")
-    
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "expires_in": int(access_token_expires.total_seconds()),
-        "user_id": user.id,
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "gender": user.gender,
-        "is_active": user.is_active
-    }
+
+    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
 @router.post("/refresh-token", response_model=Token)
 async def refresh_token(

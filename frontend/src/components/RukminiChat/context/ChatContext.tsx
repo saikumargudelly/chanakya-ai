@@ -8,24 +8,24 @@ import api from '../../../services/api';
 // ===== Helper Functions =====
 const getAssistantName = (userGender: Gender): string => {
   switch (userGender) {
-    case 'male': return 'Rukmini';
-    case 'female': return 'Krishna';
+    case 'male': return 'Krishna';
+    case 'female': return 'Rukmini';
     default: return 'Chanakya';
   }
 };
 
 const getAssistantGender = (userGender: Gender): Gender => {
   switch (userGender) {
-    case 'male': return 'female';
-    case 'female': return 'male';
+    case 'male': return 'male';
+    case 'female': return 'female';
     default: return 'neutral';
   }
 };
 
 const getModelName = (userGender: Gender): string => {
   switch (userGender) {
-    case 'male': return 'rukhmini';
-    case 'female': return 'krishna';
+    case 'male': return 'krishna';
+    case 'female': return 'rukhmini';
     default: return 'chanakya';
   }
 };
