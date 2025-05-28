@@ -61,9 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, handleLogout, handleLoginSuccess, isLoading, token }}>
-      <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || ''}>
-        {children}
-      </GoogleOAuthProvider>
+      {children}
     </AuthContext.Provider>
   );
 };

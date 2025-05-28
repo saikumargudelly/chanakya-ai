@@ -52,7 +52,7 @@ const ProtectedRoute = ({ children }) => {
     return <LoadingSpinner />;
   }
 
-  if (!user) {
+  if (!user && !isLoading) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

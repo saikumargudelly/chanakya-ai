@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Lock, User, Eye, EyeOff, Key } from 'lucide-react'; // Assuming lucide-react for icons
 import { useAuth } from './AuthContext'; // Import useAuth
 import { login as authLogin } from '../services/authService'; // Import login service
+import { GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
+  const { REACT_APP_GOOGLE_CLIENT_ID } = process.env;
   const navigate = useNavigate(); // Use navigate hook
-  const { user, login: contextLogin } = useAuth(); // Get login function from AuthContext
+  const { user, login: contextLogin, googleLogin } = useAuth(); // Get login and googleLogin functions from AuthContext
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -31,6 +33,9 @@ const Login = () => {
       // Call the login service function
       const loginSuccess = await authLogin(email, password);
 
+      // Explicitly clear error on successful login response
+      setError('');
+
       if (loginSuccess) {
         console.log('Login successful, updating context and redirecting.');
         // Update auth context state
@@ -48,6 +53,53 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:5001/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Google authentication failed');
+      }
+
+      const data = await response.json();
+      
+      // Store the tokens
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      
+      // Use the user data from the response
+      const userData = data.user;
+      
+      // Use the googleLogin function from AuthContext
+      const success = await googleLogin(userData, data.access_token);
+      
+      if (success) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        throw new Error('Failed to complete Google login');
+      }
+    } catch (err) {
+      console.error('Google login error:', err);
+      setError('Google authentication failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google authentication failed. Please try again.');
   };
 
   return (
@@ -99,8 +151,9 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading} // Disable input while loading
+                disabled={isLoading}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                autoComplete="email"
               />
             </div>
           </div>
@@ -116,8 +169,9 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={isLoading} // Disable input while loading
+                disabled={isLoading}
                 className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                autoComplete="current-password"
               />
               <button
                 type="button"
@@ -167,12 +221,31 @@ const Login = () => {
           </button>
         </form>
 
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or continue with</span>
+          </div>
+        </div>
+
+        <div className="flex justify-center">
+          <GoogleLogin
+            clientId={REACT_APP_GOOGLE_CLIENT_ID}
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            useOneTap
+            scope="https://www.googleapis.com/auth/user.gender.get https://www.googleapis.com/auth/user.phonenumbers.read https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid"
+          />
+        </div>
+
         <div className="mt-6 text-center text-sm">
           <p className="text-gray-600">Don't have an account? <Link to="/signup" className="text-purple-600 hover:text-purple-800 font-bold">Sign up</Link></p>
         </div>
 
         {/* Basic animation styles */}
-        <style jsx>{`
+        <style>{`
           @keyframes blob {
             0% {
               transform: translate(0px, 0px) scale(1);

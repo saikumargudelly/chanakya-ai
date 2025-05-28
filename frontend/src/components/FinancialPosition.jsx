@@ -45,7 +45,7 @@ const getRuleFeedback = (totalIncome, categories) => {
 };
 
 export default function FinancialPosition({ onClose }) {
-  const { token, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { token, isAuthenticated, isLoading: authLoading, user } = useAuth();
   const queryClient = useQueryClient();
   const [income, setIncome] = useState('');
   const [expenses, setExpenses] = useState(DEFAULT_EXPENSES);
@@ -53,9 +53,9 @@ export default function FinancialPosition({ onClose }) {
 
   // Fetch current month budget data
   const { data: currentBudget, isLoading: budgetLoading, error, refetch } = useQuery({
-    queryKey: ['currentMonthBudget', token],
+    queryKey: ['currentMonthBudget', user?.id, token],
     queryFn: () => budgetService.getCurrentMonthBudget(token),
-    enabled: isAuthenticated, // Only enabled when authenticated
+    enabled: !authLoading && !!user && !!token, // Only enabled when auth loading is false, user is present, and token exists
     staleTime: 0,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -76,7 +76,7 @@ export default function FinancialPosition({ onClose }) {
     },
     onError: () => {
       // Only show error if authenticated, otherwise it's a login issue
-      if (isAuthenticated) {
+      if (!authLoading && !!user) { // Check for authenticated state using authLoading and user
          setIncome('');
          setExpenses(DEFAULT_EXPENSES);
          setFeedback('Error loading budget data. Please try again.');

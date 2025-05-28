@@ -6,11 +6,7 @@ import api from './api';
  */
 export const getCurrentMonthBudget = async (token) => {
   try {
-    const response = await api.get('/budget', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+    const response = await api.get('/budget');
     // The backend returns a single budget object, not an array
     return response.data;
   } catch (error) {
@@ -35,10 +31,6 @@ export const saveBudget = async (income, expenses, token) => {
     const response = await api.post('/budget', {
       income,
       expenses
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
     });
     return response.data;
   } catch (error) {

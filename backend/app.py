@@ -146,40 +146,6 @@ app.add_middleware(
     max_age=600  # Cache preflight requests for 10 minutes
 )
 
-# Add CORS headers to all responses
-@app.middleware("http")
-async def add_cors_header(request: Request, call_next):
-    if request.method == "OPTIONS":
-        response = Response(status_code=204)
-    else:
-        response = await call_next(request)
-        
-    # Get the origin from the request
-    origin = request.headers.get('origin')
-    
-    # In development, allow all origins
-    if not is_production:
-        response.headers['Access-Control-Allow-Origin'] = origin or "*"
-    # In production, only allow specific origins
-    elif origin in origins:
-        response.headers['Access-Control-Allow-Origin'] = origin
-    
-    # Add other CORS headers
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Forwarded-For, Accept, Origin, Accept-Encoding, Accept-Language, Cache-Control, Pragma, Referer, User-Agent'
-    
-    return response
-    return response
-
-# Add request logging middleware
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    print(f"Incoming request: {request.method} {request.url}")
-    print(f"Headers: {dict(request.headers)}")
-    response = await call_next(request)
-    return response
-
 # Include routers
 app.include_router(chat_router, tags=["chat"])
 app.include_router(budget_router, prefix="/budget", tags=["budget"])

@@ -29,7 +29,7 @@ export default function BudgetAnalytics() {
   const [loading] = useState(false); // setLoading removed as it's not used
 
   // Mood trends state
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const user_id = user?.userId ? Number(user.userId) : user?.id ? Number(user.id) : user?.user_id ? Number(user.user_id) : null;
   console.log('BudgetAnalytics mounted. user:', user, 'user_id:', user_id);
   console.log('BudgetAnalytics render. user_id:', user_id, 'location:', location.pathname);
@@ -39,19 +39,19 @@ export default function BudgetAnalytics() {
 console.log('[DEBUG] Before budget-fetching useEffect. user_id:', user_id, 'location.pathname:', location.pathname);
 
 useEffect(() => {
-  if (!user_id) {
-    console.warn('[DEBUG] Budget useEffect: user_id not set, skipping fetch.');
+  if (isLoading || !user) {
+    console.warn('[DEBUG] Budget useEffect: Auth not ready or user not set, skipping fetch.');
     return;
   }
-  console.log('[DEBUG] Budget useEffect running. user_id:', user_id, 'location.pathname:', location.pathname);
+  console.log('[DEBUG] Budget useEffect running. user_id:', user.id, 'location.pathname:', location.pathname);
   async function fetchBudgets() {
     try {
-      console.log('[DEBUG] Fetching budgets for user_id:', user_id);
+      console.log('[DEBUG] Fetching budgets for user_id:', user.id);
       const res = await axios.get(
-        `http://localhost:5001/budget?user_id=${user_id}`,
+        `http://localhost:5001/budget?user_id=${user.id}`,
         {
           headers: {
-            Authorization: `Bearer ${user.token}`
+            Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         }
       );
@@ -63,7 +63,7 @@ useEffect(() => {
     }
   }
   fetchBudgets();
-}, [location.pathname, user_id]);
+}, [location.pathname, user, isLoading]); // Depend on user and isLoading
 
   const [moodPeriod, setMoodPeriod] = useState('7d');
   const [moodLoading, setMoodLoading] = useState(false);

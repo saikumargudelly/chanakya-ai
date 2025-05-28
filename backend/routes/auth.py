@@ -12,6 +12,10 @@ import jwt
 import logging
 import sys
 import os
+import requests
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+import httpx
 
 # Add the parent directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,6 +38,10 @@ from schemas.user import UserCreate, UserResponse, UserProfileResponse
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Google OAuth settings
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # Token models for JWT authentication
 class Token(BaseModel):
@@ -68,11 +76,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class UserCreate(BaseModel):
     email: str
-    password: str
+    password: Optional[str] = None
     gender: str = 'neutral'
     first_name: str = ''
     last_name: str = ''
     mobile_number: Optional[str] = None
+    google_id: Optional[str] = None
 
 class UserInDB(BaseModel):
     """Pydantic model for user data in database"""
@@ -92,12 +101,6 @@ class UserResponse(BaseModel):
     last_name: str
 
 # Helper functions
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
 def get_user(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
 
@@ -276,7 +279,7 @@ async def register(
     
     try:
         # Create new user
-        hashed_password = get_password_hash(user_data.password)
+        hashed_password = get_password_hash(user_data.password) if user_data.password else None
         db_user = User(
             email=user_data.email,
             password_hash=hashed_password,
@@ -285,7 +288,8 @@ async def register(
             gender=user_data.gender,
             is_active=True,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
+            google_id=user_data.google_id
         )
         
         db.add(db_user)
@@ -498,3 +502,115 @@ async def request_password_reset(
     db.commit()
     
     return {"message": "Password has been reset successfully. You can now log in with your new password."}
+
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+@router.post("/google", response_model=Token)
+async def google_auth(
+    request: Request,
+    google_data: GoogleAuthRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Handle Google OAuth authentication
+    """
+    try:
+        # Verify the Google token
+        idinfo = id_token.verify_oauth2_token(
+            google_data.credential, 
+            google_requests.Request(), 
+            GOOGLE_CLIENT_ID
+        )
+
+        if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token issuer"
+            )
+
+        # Get user info from Google
+        email = idinfo['email']
+        google_id = idinfo['sub']
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        picture = idinfo.get('picture', '')  # Get profile picture URL
+        gender = idinfo.get('gender', 'neutral') # Get gender
+        mobile_number = idinfo.get('phone_number') # Get phone number
+        
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            # Create new user
+            user = User(
+                email=email,
+                google_id=google_id,
+                first_name=first_name,
+                last_name=last_name,
+                mobile_number=mobile_number,
+                gender=gender,
+                profile_picture=picture,
+                is_active=True,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            # Update existing user with new information
+            user.google_id = google_id
+            user.first_name = first_name
+            user.last_name = last_name
+            if mobile_number:
+                user.mobile_number = mobile_number
+            if gender:
+                user.gender = gender
+            if picture:
+                user.profile_picture = picture
+            user.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(user)
+
+        # Create access and refresh tokens
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "email": user.email,
+                "user_id": user.id,
+            },
+            expires_delta=access_token_expires,
+        )
+        
+        refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        refresh_token = create_refresh_token(user.id, db, expires_delta=refresh_token_expires)
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "gender": user.gender,
+                "mobile_number": user.mobile_number,
+                "profile_picture": user.profile_picture,
+                "is_active": user.is_active
+            }
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google token"
+        )
+    except Exception as e:
+        logger.error(f"Google auth error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication failed"
+        )

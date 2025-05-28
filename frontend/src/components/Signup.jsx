@@ -3,11 +3,12 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { register } from '../services/authService';
 import { User, Mail, Lock, Eye, EyeOff, Key, CheckCircle, Phone, Calendar } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function Signup() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, handleLoginSuccess } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -105,6 +106,49 @@ export default function Signup() {
     }
   };
 
+  // Handle Google login success
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      // Decode the JWT token to get user info
+      const decodedToken = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
+      
+      // Create user data from Google response
+      const userData = {
+        email: decodedToken.email,
+        first_name: decodedToken.given_name || decodedToken.name.split(' ')[0],
+        last_name: decodedToken.family_name || decodedToken.name.split(' ').slice(1).join(' '),
+        password: null, // No password for Google login
+        mobile_number: '', // Optional field
+        gender: 'neutral', // Default gender
+        google_id: decodedToken.sub // Add google_id from the token
+      };
+
+      // Call the register function with Google user data
+      const result = await register(userData);
+      
+      if (result && result.token) {
+        // If registration and auto-login was successful
+        handleLoginSuccess(credentialResponse);
+        navigate('/', { replace: true });
+      } else {
+        setSuccess('Registration successful! Redirecting to login...');
+        setTimeout(() => navigate('/login', { state: { from: '/' } }), 1500);
+      }
+    } catch (err) {
+      console.error('Google signup error:', err);
+      setError(err.message || 'Failed to sign up with Google. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google sign up failed. Please try again.');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-white to-purple-200 flex items-center justify-center p-4">
       <div className="relative bg-white rounded-xl shadow-xl p-8 max-w-sm w-full">
@@ -137,6 +181,7 @@ export default function Signup() {
                   required
                   disabled={isLoading}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  autoComplete="given-name"
                 />
               </div>
             </div>
@@ -154,6 +199,7 @@ export default function Signup() {
                   required
                   disabled={isLoading}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  autoComplete="family-name"
                 />
               </div>
             </div>
@@ -173,6 +219,7 @@ export default function Signup() {
                 required
                 disabled={isLoading}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                autoComplete="email"
               />
             </div>
           </div>
@@ -191,6 +238,7 @@ export default function Signup() {
                 required
                 disabled={isLoading}
                 className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -215,7 +263,8 @@ export default function Signup() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:focus:border-purple-500"
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -241,6 +290,7 @@ export default function Signup() {
                 required
                 disabled={isLoading}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                autoComplete="tel"
               />
             </div>
           </div>
@@ -297,13 +347,34 @@ export default function Signup() {
           </button>
         </form>
 
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or continue with</span>
+          </div>
+        </div>
+
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            useOneTap
+            theme="filled_blue"
+            shape="rectangular"
+            text="signup_with"
+            size="large"
+          />
+        </div>
+
         <div className="mt-6 text-center text-sm">
           <p className="text-gray-600">Already have an account? <Link to="/login" className="text-purple-600 hover:text-purple-800 font-bold">Log in</Link></p>
         </div>
 
          {/* Basic animation styles */}
-         <style jsx>{`
-          @keyframes blob {
+         <style>{`
+           @keyframes blob {
             0% {
               transform: translate(0px, 0px) scale(1);
             }

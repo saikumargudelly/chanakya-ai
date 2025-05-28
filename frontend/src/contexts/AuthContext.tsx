@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 interface User {
   name: string;
@@ -12,7 +13,8 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   handleLogout: () => void;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string | null) => Promise<boolean>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -20,63 +22,84 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user data and token exist in localStorage on initial load
+    // Check if user data exists in localStorage
     const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token'); // Also check for token
-    if (storedUser && token) {
-      try {
-        setUser(JSON.parse(storedUser));
-        setIsAuthenticated(true);
-        // Optionally validate token here if needed
-      } catch (e) {
-        console.error('Failed to parse user from localStorage:', e);
-        handleLogout(); // Clear invalid data
-      }
-    } else {
-      setIsAuthenticated(false);
-      setUser(null);
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+      setIsAuthenticated(true);
     }
+    setIsLoading(false);
   }, []);
 
-  // Re-implement a generic login function for email/password
-  const login = async (email, password) => {
-     // This function is simplified. The actual authentication API call happens in authService.
-     // This context function is primarily to update the state *after* authService confirms success.
-     // You might fetch user details here based on the token received from authService.
-     const token = localStorage.getItem('token'); // Assuming authService.login stores the token
-     if (token) {
-        // In a real app, you'd decode/verify the token and/or fetch user details from your backend here
-        // For this example, we'll just simulate fetching user data based on email
-        const dummyUser: User = { 
-          name: email.split('@')[0], 
-          email: email, 
-          picture: '', 
-          gender: 'female',
-          first_name: email.split('@')[0] // Use email username as first name for now
-        }; // Dummy user data with hardcoded gender
-        setUser(dummyUser);
+  const login = async (email: string, password: string | null) => {
+    try {
+      // If password is null, it's a Google login
+      if (password === null) {
+        const response = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Google authentication failed');
+        }
+
+        const data = await response.json();
+        const userData: User = {
+          name: data.name || email.split('@')[0],
+          email: data.email,
+          picture: data.picture || '',
+          gender: data.gender || 'neutral',
+          first_name: data.first_name || email.split('@')[0],
+        };
+
+        setUser(userData);
         setIsAuthenticated(true);
-        localStorage.setItem('user', JSON.stringify(dummyUser));
+        localStorage.setItem('user', JSON.stringify(userData));
         return true;
-     } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        return false;
-     }
+      }
+
+      // Regular email/password login
+      const token = localStorage.getItem('token');
+      if (token) {
+        const userData: User = {
+          name: email.split('@')[0],
+          email: email,
+          picture: '',
+          gender: 'neutral',
+          first_name: email.split('@')[0],
+        };
+        setUser(userData);
+        setIsAuthenticated(true);
+        localStorage.setItem('user', JSON.stringify(userData));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
+    }
   };
 
   const handleLogout = () => {
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('user');
-    localStorage.removeItem('token'); // Also remove token on logout
+    localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, handleLogout, login }}>
-      {children}
+    <AuthContext.Provider value={{ user, isAuthenticated, handleLogout, login, isLoading }}>
+      <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || ''}>
+        {children}
+      </GoogleOAuthProvider>
     </AuthContext.Provider>
   );
 };
