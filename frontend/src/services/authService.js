@@ -151,51 +151,87 @@ export const register = async (userData) => {
 export const refreshAccessToken = async () => {
   // If a refresh is already in progress, return the existing promise
   if (refreshTokenPromise) {
+    console.log('Token refresh already in progress, waiting...');
     return refreshTokenPromise;
   }
   
   try {
     const refreshToken = localStorage.getItem('refresh_token');
     if (!refreshToken) {
-      throw new Error('No refresh token available');
+      console.warn('No refresh token available');
+      throw new Error('No refresh token available. Please log in again.');
     }
     
+    console.log('Attempting to refresh access token...');
+    
     // Create the refresh token request
-    refreshTokenPromise = api.post('/auth/refresh-token', {
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token'
-    }, {
-      skipAuthRefresh: true // Don't try to refresh token for refresh request
-    }).then(response => {
-      if (response.data.access_token) {
-        // Store the new token
-        localStorage.setItem('token', response.data.access_token);
-        
-        // Update refresh token if a new one is provided
-        if (response.data.refresh_token) {
-          localStorage.setItem('refresh_token', response.data.refresh_token);
+    refreshTokenPromise = api.post(
+      '/auth/refresh-token',
+      {
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token'
+      },
+      {
+        skipAuthRefresh: true, // Don't try to refresh token for refresh request
+        headers: {
+          'Content-Type': 'application/json'
         }
-        
-        // Update token expiration
-        const expiresIn = response.data.expires_in || 3600;
-        const tokenExpiry = new Date().getTime() + (expiresIn * 1000);
-        localStorage.setItem('token_expiry', tokenExpiry.toString());
-        
-        return response.data.access_token;
       }
-      throw new Error('No access token in refresh response');
-    }).finally(() => {
-      // Reset the promise when done
+    )
+    .then(response => {
+      console.log('Token refresh successful');
+      
+      if (!response.data || !response.data.access_token) {
+        throw new Error('No access token in refresh response');
+      }
+      
+      const { access_token, refresh_token, expires_in } = response.data;
+      
+      // Store the new token
+      localStorage.setItem('token', access_token);
+      
+      // Update refresh token if a new one is provided
+      if (refresh_token) {
+        console.log('New refresh token received');
+        localStorage.setItem('refresh_token', refresh_token);
+      }
+      
+      // Update token expiration (default to 1 hour if not provided)
+      const expiresIn = expires_in || 3600;
+      const tokenExpiry = new Date().getTime() + (expiresIn * 1000);
+      localStorage.setItem('token_expiry', tokenExpiry.toString());
+      
+      console.log('Token refresh completed successfully');
+      return access_token;
+    })
+    .catch(error => {
+      console.error('Error during token refresh:', error);
+      // Clear all auth data on any error during refresh
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expiry');
+      
+      // If we're not already on the login page, redirect there
+      if (window.location.pathname !== '/login') {
+        window.location.href = `/login?error=session_expired&from=${encodeURIComponent(window.location.pathname)}`;
+      }
+      
+      throw new Error('Your session has expired. Please log in again.');
+    })
+    .finally(() => {
+      // Always reset the promise when done
       refreshTokenPromise = null;
     });
     
     return await refreshTokenPromise;
   } catch (error) {
     console.error('Token refresh failed:', error);
-    // Clear tokens if refresh fails
+    // Clear all auth data
     localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_expiry');
+    
+    // Rethrow the error for the interceptor to handle
     throw error;
   }
 };

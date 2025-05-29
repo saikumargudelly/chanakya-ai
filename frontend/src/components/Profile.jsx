@@ -3,7 +3,10 @@ import { useAuth } from './AuthContext';
 import API from '../services/api';
 
 export default function Profile({ onClose }) {
-  const { token, user, updateUser } = useAuth();
+  const auth = useAuth();
+  const token = auth?.token;
+  const user = auth?.user;
+  const updateUser = auth?.updateUser;
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,31 +56,102 @@ export default function Profile({ onClose }) {
     e.preventDefault();
     setSuccess('');
     setError('');
+    setLoading(true);
+    
+    // Prepare the update data
+    const updateData = {
+      first_name: form.first_name,
+      last_name: form.last_name,
+      gender: form.gender,
+      mobile_number: form.mobile_number,
+      address: form.address
+    };
+
+    console.log('Sending profile update:', updateData);
+
     try {
-      // Send each field as a separate parameter
-      const response = await API.put('/auth/users/me/', null, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: {
-          first_name: form.first_name,
-          last_name: form.last_name,
-          gender: form.gender,
-          mobile_number: form.mobile_number,
-          address: form.address
+      // Send data in the request body
+      const response = await API.put('/auth/users/me/', updateData, {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
+      
+      console.log('Profile update response:', response.data);
+      
       setSuccess('Profile updated successfully!');
-      setProfile({ ...profile, ...form });
-      // Update the user data in AuthContext
-      updateUser({
-        first_name: form.first_name,
-        last_name: form.last_name,
-        email: form.email,
-        mobile_number: form.mobile_number,
-        gender: form.gender
-      });
+      
+      // Update local profile state
+      const updatedProfile = { ...profile, ...updateData };
+      setProfile(updatedProfile);
+      
+      // Update the user data in AuthContext if updateUser is available
+      if (typeof updateUser === 'function') {
+        try {
+          updateUser({
+            first_name: updatedProfile.first_name,
+            last_name: updatedProfile.last_name,
+            email: updatedProfile.email,
+            mobile_number: updatedProfile.mobile_number,
+            gender: updatedProfile.gender
+          });
+          console.log('Auth context updated successfully');
+        } catch (updateError) {
+          console.warn('Failed to update auth context:', updateError);
+          // Don't fail the whole operation if just the context update fails
+        }
+      } else {
+        console.warn('updateUser function not available in auth context');
+      }
+      
+      // Log the success
+      console.log('Profile updated successfully');
     } catch (err) {
-      console.error('Profile update error:', err);
-      setError(err.response?.data?.detail || 'Failed to update profile.');
+      // Log complete error details
+      const errorDetails = {
+        message: err.message,
+        response: {
+          data: err.response?.data,
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          headers: err.response?.headers,
+        },
+        request: {
+          url: err.config?.url,
+          method: err.config?.method,
+          data: err.config?.data,
+          headers: err.config?.headers,
+        },
+      };
+      
+      console.error('Profile update error details:', errorDetails);
+      
+      // Try to get a more specific error message
+      let errorMessage = 'Failed to update profile. ';
+      
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (err.response.data) {
+          if (typeof err.response.data === 'object') {
+            errorMessage += Object.entries(err.response.data)
+              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(' ') : value}`)
+              .join(' | ');
+          } else if (typeof err.response.data === 'string') {
+            errorMessage += err.response.data;
+          }
+        }
+        errorMessage += ` (Status: ${err.response.status})`;
+      } else if (err.request) {
+        // The request was made but no response was received
+        console.error('No response received:', err.request);
+        errorMessage += 'No response received from server. Please check your connection.';
+      } else {
+        // Something happened in setting up the request
+        console.error('Request setup error:', err.message);
+        errorMessage += err.message;
+      }
     }
   };
 

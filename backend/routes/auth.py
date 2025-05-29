@@ -190,68 +190,64 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     )
     
     if not token:
-        print("No token provided")
+        logger.warning("No authentication token provided")
         raise credentials_exception
         
     try:
-        # Debug: Print the token being used
+        # Debug: Print the token being used (only first 10 chars for security)
         logger.info(f"Attempting to validate token: {token[:10]}...")
         
         # Decode the token
         try:
-            payload = jwt.decode(
-                token,
-                SECRET_KEY,
-                algorithms=[ALGORITHM],
-                options={"verify_aud": False}
-            )
-            print(f"Decoded payload: {payload}")
-        except jwt.ExpiredSignatureError:
-            print("Token has expired")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has expired. Please log in again."
-            )
-        except jwt.JWTClaimsError as e:
-            print(f"Token claims error: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token claims. Please log in again."
-            )
-        except Exception as e:
-            print(f"Error decoding token: {str(e)}")
-            raise credentials_exception
-        
-        # Get email and user_id from token
-        email: str = payload.get("email") or payload.get("sub")
-        user_id: int = payload.get("user_id")
-        
-        print(f"Email from token: {email}")
-        print(f"User ID from token: {user_id}")
-        
-        if email is None or user_id is None:
-            print("Missing email or user_id in token")
-            raise credentials_exception
-        
-        # Get user from database
-        user = db.query(User).filter(User.id == user_id, User.email == email).first()
-        print(f"User from DB: {user.id if user else 'Not found'}")
-        
-        if user is None:
-            print("User not found in database")
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            logger.info(f"Decoded payload: {payload}")
+            
+            # Get user identifier from token (prefer user_id over email)
+            user_id = payload.get("user_id") or payload.get("sub")
+            email = payload.get("email")
+            
+            logger.info(f"User ID from token: {user_id}")
+            logger.info(f"Email from token: {email}")
+            
+            if not user_id and not email:
+                logger.error("No user identifier found in token")
+                raise credentials_exception
+            
+            # Try to get user by ID first (more reliable)
+            user = None
+            if user_id:
+                logger.info(f"Attempting to get user by ID: {user_id}")
+                try:
+                    user = db.query(User).filter(User.id == int(user_id)).first()
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid user_id format in token: {user_id}")
+            
+            # Fallback to email if user not found by ID
+            if not user and email:
+                logger.info(f"User not found by ID, trying email: {email}")
+                user = db.query(User).filter(User.email == email).first()
+            
+            if not user:
+                logger.error("User not found in database")
+                raise credentials_exception
+                
+            # Check if user is active
+            if not user.is_active:
+                logger.warning(f"User {user.id} is inactive")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Inactive user"
+                )
+                
+            logger.info(f"Successfully authenticated user: {user.email} (ID: {user.id})")
+            return user
+            
+        except JWTError as e:
+            logger.error(f"JWT validation error: {str(e)}")
             raise credentials_exception
             
-        if not user.is_active:
-            print("User account is not active")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User account is not active"
-            )
-            
-        print("Token validation successful")
-        return user
-        
     except HTTPException:
+        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         print(f"Unexpected error in get_current_user: {str(e)}")
@@ -373,34 +369,51 @@ async def refresh_token(
     """
     logger.info("Refresh token request received")
     
-    # Verify the refresh token
-    user = verify_refresh_token(refresh_request.refresh_token, db)
-    if not user:
-        logger.warning("Invalid refresh token provided")
+    try:
+        # Verify the refresh token
+        user = verify_refresh_token(refresh_request.refresh_token, db)
+        if not user:
+            logger.warning("Invalid refresh token provided")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Create new access token with user details
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "email": user.email,
+                "user_id": user.id,  # Explicitly include user_id
+                "type": "access"    # Explicitly set token type
+            },
+            expires_delta=access_token_expires
+        )
+        
+        logger.info(f"Successfully refreshed token for user {user.email}")
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_request.refresh_token,  # Keep the same refresh token
+            "token_type": "bearer",
+            "expires_in": int(access_token_expires.total_seconds())
+        }
+        
+    except JWTError as e:
+        logger.error(f"JWT error during token refresh: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
+            detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Create new access token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id), "email": user.email},
-        expires_delta=access_token_expires
-    )
-    
-    # Optionally create a new refresh token (rotate refresh token)
-    # refresh_token = create_refresh_token(user.id, db)
-    
-    logger.info(f"New access token generated for user: {user.email}")
-    
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_request.refresh_token,  # Or new refresh_token if rotating
-        "token_type": "bearer",
-        "expires_in": int(access_token_expires.total_seconds())
-    }
+    except Exception as e:
+        logger.error(f"Unexpected error during token refresh: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while refreshing the token"
+        )
 
 @router.get("/profile", response_model=UserProfileResponse)
 async def get_current_user_profile(
