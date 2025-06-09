@@ -30,9 +30,9 @@ export const login = async (email, password) => {
     console.log('Login response:', response.data);
 
     if (response.data && response.data.access_token) {
-      const { access_token, refresh_token, expires_in, user_id, ...userData } = response.data;
+      const { access_token, refresh_token, expires_in } = response.data;
       
-      // Store the token in localStorage
+      // Store the tokens in localStorage
       localStorage.setItem('token', access_token);
       
       // Store refresh token if available
@@ -45,40 +45,23 @@ export const login = async (email, password) => {
       const tokenExpiry = new Date().getTime() + (expiresIn * 1000);
       localStorage.setItem('token_expiry', tokenExpiry.toString());
       
-      console.log('User data from login:', userData);
+      // Get user profile
+      const profileResponse = await api.get('/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${access_token}`
+        }
+      });
       
       return {
         token: access_token,
-        user: {
-          id: user_id || userData.id,
-          email: email,
-          first_name: userData.first_name || '',
-          last_name: userData.last_name || '',
-          gender: userData.gender || 'neutral',
-          is_active: userData.is_active !== undefined ? userData.is_active : true
-        }
+        user: profileResponse.data
       };
     }
     
     throw new Error('No access token received');
   } catch (error) {
     console.error('Login error:', error);
-    let errorMessage = 'Login failed. Please try again.';
-    
-    if (error.response) {
-      if (error.response.status === 401) {
-        errorMessage = 'Invalid email or password';
-      } else if (error.response.data) {
-        errorMessage = error.response.data.detail || 
-                     error.response.data.error_description ||
-                     error.response.data.error || 
-                     errorMessage;
-      }
-    } else if (error.request) {
-      errorMessage = 'No response from server. Please check your connection.';
-    }
-    
-    throw new Error(errorMessage);
+    throw error;
   }
 };
 
@@ -113,34 +96,31 @@ export const register = async (userData) => {
     
     console.log('Registration response:', response.data);
     
-    // Auto-login after successful registration
-    if (response.data && response.data.email) {
-      console.log('Auto-login after registration');
-      return await login(userData.email, userData.password);
+    if (response.data && response.data.access_token) {
+      const { access_token, refresh_token, expires_in } = response.data;
+      
+      // Store the tokens in localStorage
+      localStorage.setItem('token', access_token);
+      
+      if (refresh_token) {
+        localStorage.setItem('refresh_token', refresh_token);
+      }
+      
+      // Store token expiration time
+      const expiresIn = expires_in || 3600;
+      const tokenExpiry = new Date().getTime() + (expiresIn * 1000);
+      localStorage.setItem('token_expiry', tokenExpiry.toString());
+      
+      return {
+        success: true,
+        token: access_token
+      };
     }
     
-    // If we get here, registration was successful but auto-login didn't happen
-    return { success: true, message: 'Registration successful. Please log in.' };
-    
-    return response.data;
+    return { success: true, message: 'Registration successful.' };
   } catch (error) {
     console.error('Registration error:', error);
-    let errorMessage = 'Registration failed. Please try again.';
-    
-    if (error.response) {
-      if (error.response.status === 400) {
-        errorMessage = error.response.data.detail || 'Invalid registration data';
-      } else if (error.response.data) {
-        errorMessage = error.response.data.detail || 
-                     error.response.data.error_description ||
-                     error.response.data.error || 
-                     errorMessage;
-      }
-    } else if (error.request) {
-      errorMessage = 'No response from server. Please check your connection.';
-    }
-    
-    throw new Error(errorMessage);
+    throw error;
   }
 };
 

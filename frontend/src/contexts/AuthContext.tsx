@@ -15,24 +15,43 @@ interface AuthContextType {
   handleLogout: () => void;
   login: (email: string, password: string | null) => Promise<boolean>;
   isLoading: boolean;
+  updateUser: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    // Check if user data exists in localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+      }
     }
     setIsLoading(false);
   }, []);
+
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      // Make sure gender is always set to a valid value
+      if (!updatedUser.gender || !['male', 'female', 'neutral'].includes(updatedUser.gender)) {
+        updatedUser.gender = 'neutral';
+      }
+      setUser(updatedUser);
+      // Important: Save the complete updated user object to localStorage
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+  };
 
   const login = async (email: string, password: string | null) => {
     try {
@@ -96,13 +115,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, handleLogout, login, isLoading }}>
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
+      isLoading,
+      updateUser,
+      handleLogout,
+      login,
+    }}>
       <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || ''}>
         {children}
       </GoogleOAuthProvider>
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -110,4 +136,4 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}; 
+};

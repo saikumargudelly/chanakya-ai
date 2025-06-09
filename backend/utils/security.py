@@ -44,7 +44,14 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: True if the password matches the hash, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        if not plain_password or not hashed_password:
+            logger.error("Missing password or hash during verification")
+            return False
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        logger.error(f"Error verifying password: {str(e)}")
+        return False
 
 def get_password_hash(password: str) -> str:
     """
@@ -55,7 +62,12 @@ def get_password_hash(password: str) -> str:
         
     Returns:
         str: The hashed password
+        
+    Raises:
+        ValueError: If password is empty or None
     """
+    if not password:
+        raise ValueError("Password cannot be empty")
     return pwd_context.hash(password)
 
 # OAuth2 scheme for token authentication

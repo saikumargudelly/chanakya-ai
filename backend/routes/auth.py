@@ -93,13 +93,6 @@ class UserInDB(BaseModel):
     last_name: str = ''
     is_active: bool = True
 
-class UserResponse(BaseModel):
-    id: int
-    email: str
-    gender: str
-    first_name: str
-    last_name: str
-
 # Helper functions
 def get_user(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
@@ -253,14 +246,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         print(f"Unexpected error in get_current_user: {str(e)}")
         raise credentials_exception
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(
     request: Request,
     user_data: UserCreate, 
     db: Session = Depends(get_db)
 ):
     """
-    Register a new user
+    Register a new user and return access token
     """
     logger.info(f"Registration attempt for email: {user_data.email}")
     
@@ -274,14 +267,28 @@ async def register(
         )
     
     try:
+        # Validate password requirement for non-Google users
+        if not user_data.google_id and not user_data.password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required for registration"
+            )
+
         # Create new user
         hashed_password = get_password_hash(user_data.password) if user_data.password else None
+        if not user_data.google_id and not hashed_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password hashing failed"
+            )
+            
         db_user = User(
             email=user_data.email,
             password_hash=hashed_password,
             first_name=user_data.first_name,
             last_name=user_data.last_name,
             gender=user_data.gender,
+            mobile_number=user_data.mobile_number,
             is_active=True,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -294,14 +301,35 @@ async def register(
         
         logger.info(f"User registered successfully: {user_data.email}")
         
-        return db_user
+        # Create access and refresh tokens
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={
+                "sub": str(db_user.id),
+                "email": db_user.email,
+                "user_id": db_user.id,
+            },
+            expires_delta=access_token_expires,
+        )
         
+        refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        refresh_token = create_refresh_token(db_user.id, db, expires_delta=refresh_token_expires)
+        
+        return Token(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+        
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Registration error for {user_data.email}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error creating user"
+            detail=str(e)
         )
 
 @router.post("/token", response_model=Token, summary="OAuth2 compatible token login")
@@ -317,8 +345,25 @@ async def login_for_access_token(
     
     # Authenticate the user with username and password
     user = get_user(db, form_data.username)
-    if not user or not verify_password(form_data.password, user.password_hash):
-        logger.warning(f"Failed login attempt for user: {form_data.username}")
+    if not user:
+        logger.warning(f"User not found: {form_data.username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Verify password - log more details if verification fails
+    if not user.password_hash:
+        logger.error(f"User {form_data.username} has no password hash")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not verify_password(form_data.password, user.password_hash):
+        logger.warning(f"Password verification failed for user: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -345,7 +390,7 @@ async def login_for_access_token(
         data={
             "sub": str(user.id),
             "email": user.email,
-            "user_id": user.id, # Include user_id in access token payload
+            "user_id": user.id,
         },
         expires_delta=access_token_expires,
     )
@@ -356,7 +401,12 @@ async def login_for_access_token(
 
     logger.info(f"Successful login for user: {user.email}")
 
-    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        expires_in=int(access_token_expires.total_seconds())
+    )
 
 @router.post("/refresh-token", response_model=Token)
 async def refresh_token(
@@ -441,34 +491,67 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 
 @router.put("/users/me/", response_model=UserResponse)
 async def update_user_profile(
-    first_name: Optional[str] = None,
-    last_name: Optional[str] = None,
-    gender: Optional[str] = None,
-    mobile_number: Optional[str] = None,
-    address: Optional[str] = None,
+    first_name: Optional[str] = Form(None),
+    last_name: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
+    mobile_number: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Update user profile"""
     if gender and gender not in ['male', 'female', 'neutral']:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid gender. Must be one of: male, female, neutral"
         )
     
-    if first_name is not None:
-        current_user.first_name = first_name
-    if last_name is not None:
-        current_user.last_name = last_name
-    if gender is not None:
-        current_user.gender = gender
-    if mobile_number is not None:
-        current_user.mobile_number = mobile_number
-    if address is not None:
-        current_user.address = address
-    
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    try:
+        # Update user fields if provided in the request
+        if first_name is not None:
+            current_user.first_name = first_name
+        if last_name is not None:
+            current_user.last_name = last_name
+        if gender is not None:
+            print(f"Updating gender from {current_user.gender} to {gender}")  # Debug log
+            current_user.gender = gender
+        if mobile_number is not None:
+            current_user.mobile_number = mobile_number
+        if address is not None:
+            current_user.address = address
+
+        current_user.updated_at = datetime.utcnow()
+        
+        # Commit changes
+        db.commit()
+        
+        # Force a refresh from the database to get updated values
+        db.refresh(current_user)
+        
+        print(f"User after refresh - gender: {current_user.gender}")  # Debug log
+        
+        # Create response using the UserResponse model directly from schemas.user
+        from schemas.user import UserResponse as UserResponseSchema
+        
+        updated_response = UserResponseSchema(
+            id=current_user.id,
+            email=current_user.email,
+            first_name=current_user.first_name,
+            last_name=current_user.last_name,
+            gender=current_user.gender,  # Explicitly include gender
+            mobile_number=current_user.mobile_number,
+            is_active=current_user.is_active
+        )
+        
+        print(f"Response being sent: {updated_response.dict()}")  # Debug log
+        return updated_response
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @router.post("/reset-password/")
 async def reset_password(

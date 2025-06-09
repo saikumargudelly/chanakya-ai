@@ -5,100 +5,108 @@ import { useAuth } from '../components/AuthContext.jsx';
 const GoalContext = createContext();
 
 export function useGoals() {
-  return useContext(GoalContext);
+  const context = useContext(GoalContext);
+  if (!context) {
+    throw new Error('useGoals must be used within a GoalProvider');
+  }
+  return context;
 }
 
 export function GoalProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [goals, setGoals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Debug: Log user object and its properties
-  useEffect(() => {
-    console.log('GoalContext - Current user:', user);
-    console.log('GoalContext - User ID:', user?.userId || user?.id);
-  }, [user]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const loadGoals = useCallback(async () => {
+    if (isAuthLoading) return;
+    
     const userId = user?.userId || user?.user_id || user?.id;
-    console.log('loadGoals - User ID:', userId, 'from user object:', user);
+    
     if (!userId) {
-      console.log('loadGoals - No user ID found, setting empty goals');
       setGoals([]);
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
+    
+    setIsLoading(true);
+    setError(null);
+    
     try {
       const userGoals = await goalService.getGoals(userId);
       setGoals(Array.isArray(userGoals) ? userGoals : []);
-    } catch (error) {
-      console.error('Error loading goals:', error);
+    } catch (err) {
+      console.error('Error loading goals:', err);
+      setError(err.message || 'Failed to load goals');
       setGoals([]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [user?.userId, user?.id]);
+  }, [user, isAuthLoading]);
 
   useEffect(() => {
     loadGoals();
   }, [loadGoals]);
 
-  const addGoal = async (goal) => {
-    console.log('addGoal - User object:', user);
+  const addGoal = useCallback(async (goal) => {
     const userId = user?.userId || user?.user_id || user?.id;
-    console.log('addGoal - User ID:', userId, 'from user object:', user);
     if (!userId) {
-      console.error('addGoal - No user ID found in user object:', user);
       throw new Error('User not authenticated. Please log in again.');
     }
+    
     try {
       const newGoal = await goalService.addGoal(userId, goal);
       await loadGoals();
       return newGoal;
-    } catch (error) {
-      console.error('Error adding goal:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error adding goal:', err);
+      throw err;
     }
-  };
+  }, [user, loadGoals]);
 
-  const updateGoal = async (goal) => {
+  const updateGoal = useCallback(async (goal) => {
     const userId = user?.userId || user?.user_id || user?.id;
     if (!userId) {
       throw new Error('User not authenticated');
     }
+    
     try {
       const updatedGoal = await goalService.updateGoal(userId, goal);
       await loadGoals();
       return updatedGoal;
-    } catch (error) {
-      console.error('Error updating goal:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error updating goal:', err);
+      throw err;
     }
-  };
+  }, [user, loadGoals]);
 
-  const deleteGoal = async (goalId) => {
+  const deleteGoal = useCallback(async (goalId) => {
     const userId = user?.userId || user?.user_id || user?.id;
     if (!userId) {
       throw new Error('User not authenticated');
     }
+    
     try {
       await goalService.deleteGoal(userId, goalId);
       await loadGoals();
-    } catch (error) {
-      console.error('Error deleting goal:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error deleting goal:', err);
+      throw err;
     }
+  }, [user, loadGoals]);
+
+  const value = {
+    goals,
+    isLoading,
+    error,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    refreshGoals: loadGoals
   };
 
   return (
-    <GoalContext.Provider value={{ 
-      goals, 
-      addGoal, 
-      updateGoal, 
-      deleteGoal, 
-      loading,
-      refreshGoals: loadGoals
-    }}>
+    <GoalContext.Provider value={value}>
       {children}
     </GoalContext.Provider>
   );

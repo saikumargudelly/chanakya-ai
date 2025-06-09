@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { register } from '../services/authService';
-import { User, Mail, Lock, Eye, EyeOff, Key, CheckCircle, Phone, Calendar } from 'lucide-react';
+import { User, Mail, Eye, EyeOff, Key, CheckCircle, Phone, Calendar } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 
 export default function Signup() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, handleLoginSuccess } = useAuth();
+  const { user, login: contextLogin } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     first_name: '',
     last_name: '',
     mobile_number: '',
-    gender: 'male'
+    gender: 'neutral'  // Default to neutral
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -79,26 +79,24 @@ export default function Signup() {
       
       const result = await register(formData);
       
-      if (result && result.token) {
-        // If auto-login was successful, redirect to dashboard
-        console.log('Registration and auto-login successful, redirecting...');
-        navigate('/', { replace: true });
-      } else {
-        // If auto-login didn't happen, show success message and redirect to login
-        setSuccess('Registration successful! Redirecting to login...');
-        setTimeout(() => navigate('/login', { state: { from: '/' } }), 1500);
+      // If registration successful, attempt login
+      if (result) {
+        const loginSuccess = await contextLogin(formData.email, formData.password);
+        if (loginSuccess) {
+          navigate('/dashboard', { replace: true });
+        } else {
+          setSuccess('Registration successful! Please log in.');
+          setTimeout(() => navigate('/login', { state: { from: '/' } }), 1500);
+        }
       }
     } catch (err) {
       console.error('Signup error:', err);
       // Handle different types of errors
       if (err.response) {
-        // Server responded with an error status
         setError(err.response.data?.detail || 'Registration failed. Please try again.');
       } else if (err.request) {
-        // Request was made but no response received
         setError('Unable to connect to the server. Please check your connection.');
       } else {
-        // Something else happened
         setError(err.message || 'Registration failed. Please try again.');
       }
     } finally {
@@ -106,36 +104,33 @@ export default function Signup() {
     }
   };
 
-  // Handle Google login success
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       setIsLoading(true);
       setError('');
       
-      // Decode the JWT token to get user info
       const decodedToken = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
       
-      // Create user data from Google response
       const userData = {
         email: decodedToken.email,
         first_name: decodedToken.given_name || decodedToken.name.split(' ')[0],
         last_name: decodedToken.family_name || decodedToken.name.split(' ').slice(1).join(' '),
-        password: null, // No password for Google login
-        mobile_number: '', // Optional field
-        gender: 'neutral', // Default gender
-        google_id: decodedToken.sub // Add google_id from the token
+        password: null,
+        mobile_number: '',
+        gender: 'neutral',
+        google_id: decodedToken.sub
       };
 
-      // Call the register function with Google user data
       const result = await register(userData);
       
-      if (result && result.token) {
-        // If registration and auto-login was successful
-        handleLoginSuccess(credentialResponse);
-        navigate('/', { replace: true });
-      } else {
-        setSuccess('Registration successful! Redirecting to login...');
-        setTimeout(() => navigate('/login', { state: { from: '/' } }), 1500);
+      if (result) {
+        const loginSuccess = await contextLogin(userData.email, null, credentialResponse.credential);
+        if (loginSuccess) {
+          navigate('/dashboard', { replace: true });
+        } else {
+          setSuccess('Registration successful! Please log in.');
+          setTimeout(() => navigate('/login', { state: { from: '/' } }), 1500);
+        }
       }
     } catch (err) {
       console.error('Google signup error:', err);
@@ -263,7 +258,7 @@ export default function Signup() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:focus:border-purple-500"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                 autoComplete="new-password"
               />
               <button
@@ -296,7 +291,7 @@ export default function Signup() {
           </div>
 
           <div>
-            <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+            <label htmlFor="gender" className="sr-only">Gender</label>
             <div className="relative">
                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 z-10" size={20} />
               <select

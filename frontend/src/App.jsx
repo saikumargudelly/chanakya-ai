@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from './components/AuthContext';
-import { GoalProvider, useGoals } from './context/GoalContext';
+import { AuthProvider, useAuth } from './components/AuthContext';  
+import { GoalProvider } from './context/GoalContext';
 import RukminiChat from './components/RukminiChat';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,12 +12,10 @@ import TopNav from './components/TopNav';
 
 // Pages
 import Dashboard from './components/Dashboard';
-import BudgetForm from './components/BudgetForm';
 import BudgetAnalytics from './components/BudgetAnalytics';
 import FinancialPosition from './components/FinancialPosition';
 import GoalTracker from './components/GoalTracker';
 import MoodTracker from './components/MoodTracker';
-import Profile from './components/Profile';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Home from './components/Home';
@@ -89,15 +87,11 @@ const PageTransition = ({ children }) => (
   </motion.div>
 );
 
-// Main App content with layout
-function AppContent() {
-  const { user } = useAuth();
-  const { goals } = useGoals();
+// Layout for authenticated users
+const AuthenticatedLayout = ({ children }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
-
-  const isPublicPage = ["/home", "/", "/login", "/signup"].includes(location.pathname);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -119,59 +113,87 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      {!isPublicPage && (
-        <>
-          <Sidebar ref={sidebarRef} isOpen={isSidebarOpen} />
-          <TopNav toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-          <RukminiChat />
-        </>
-      )}
-      <main className={!isPublicPage ? "pl-64 pt-20 min-h-screen transition-all duration-300" : ""}>
+      <Sidebar ref={sidebarRef} isOpen={isSidebarOpen} />
+      <TopNav toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <RukminiChat />
+      <main className="pl-64 pt-20 min-h-screen transition-all duration-300">
         <AnimatePresence mode="wait" initial={false}>
           <PageTransition key={location.pathname}>
             <div className="p-4">
-              <Routes location={location} key={location.pathname}>
-                {/* Public routes */}
-                <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
-                <Route path="/home" element={<Home />} />
-                <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-                <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
-
-                {/* Protected routes */}
-                <Route path="/dashboard" element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/budget-analytics" element={
-                  <ProtectedRoute>
-                    <BudgetAnalytics />
-                  </ProtectedRoute>
-                } />
-                <Route path="/financial-position" element={
-                  <ProtectedRoute>
-                    <FinancialPosition />
-                  </ProtectedRoute>
-                } />
-                <Route path="/mood" element={
-                  <ProtectedRoute>
-                    <MoodTracker />
-                  </ProtectedRoute>
-                } />
-                <Route path="/goal-tracker" element={
-                  <ProtectedRoute>
-                    <GoalTracker />
-                  </ProtectedRoute>
-                } />
-
-                {/* 404 fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              {children}
             </div>
           </PageTransition>
         </AnimatePresence>
       </main>
     </div>
+  );
+};
+
+// Main App content with layout
+function AppContent() {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <Routes location={location} key={location.pathname}>
+      {/* Public routes */}
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
+      <Route path="/home" element={<Home />} />
+      <Route path="/login" element={
+        <PublicRoute>
+          <Login />
+        </PublicRoute>
+      } />
+      <Route path="/signup" element={
+        <PublicRoute>
+          <Signup />
+        </PublicRoute>
+      } />
+
+      {/* Protected routes */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <AuthenticatedLayout>
+            <Dashboard />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/budget-analytics" element={
+        <ProtectedRoute>
+          <AuthenticatedLayout>
+            <BudgetAnalytics />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/financial-position" element={
+        <ProtectedRoute>
+          <AuthenticatedLayout>
+            <FinancialPosition />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/mood" element={
+        <ProtectedRoute>
+          <AuthenticatedLayout>
+            <MoodTracker />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/goal-tracker" element={
+        <ProtectedRoute>
+          <AuthenticatedLayout>
+            <GoalTracker />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* 404 fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

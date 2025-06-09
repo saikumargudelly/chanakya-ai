@@ -10,7 +10,8 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    password_hash = Column(String, nullable=True)
+    # Only Google auth users can have null password_hash
+    password_hash = Column(String)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     mobile_number = Column(String, nullable=True)
@@ -25,6 +26,7 @@ class User(Base):
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
     budgets = relationship("Budget", back_populates="user", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
+    mood_sessions = relationship("MoodSession", back_populates="user", cascade="all, delete-orphan")
     chat_history = relationship("ChatHistory", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
 
@@ -79,11 +81,14 @@ class ChatHistory(Base):
 class MoodSession(Base):
     __tablename__ = 'mood_sessions'
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
     perma_scores = Column(JSON)      # e.g., {"P": 3, "E": 2, ...}
     answers = Column(JSON)           # raw answers to questions
     summary = Column(String)         # summary string for analytics
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship
+    user = relationship("User", back_populates="mood_sessions")
 
 class Transaction(Base):
     __tablename__ = 'transactions'

@@ -26,14 +26,19 @@ class UserInDB(UserBase):
     updated_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     id: int
+    email: EmailStr
+    first_name: str
+    last_name: str
+    mobile_number: Optional[str] = None
+    gender: str
     is_active: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserProfileResponse(UserBase):
     id: int
@@ -42,4 +47,4 @@ class UserProfileResponse(UserBase):
     updated_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

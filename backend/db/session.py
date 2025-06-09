@@ -2,12 +2,16 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
+from dotenv import load_dotenv
 
 # Import all models here to ensure they are registered with SQLAlchemy
-from backend.db.models import Base, User, Goal, Budget, Transaction, ChatHistory, RefreshToken
+from .models import Base, User, Goal, Budget, Transaction, ChatHistory, RefreshToken
 
-# PostgreSQL database URL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/chanakya_db")
+# Load environment variables
+load_dotenv()
+
+# SQLite database URL - fallback to SQLite if no DATABASE_URL is provided
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///chanakya.db")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

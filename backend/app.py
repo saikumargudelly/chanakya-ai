@@ -92,6 +92,7 @@ from backend.routes.mood import router as mood_router
 from backend.routes.auth import router as auth_router
 from backend.routes.mood_session import router as mood_session_router
 from backend.routes.goals import router as goals_router
+from backend.routes.perma_chat import router as perma_chat_router
 from backend.chanakya_chain.prompts import PERMA_PROMPT_TEMPLATE
 
 # Explicitly load .env from the project root
@@ -124,11 +125,6 @@ if os.getenv('ENV') == 'production':
     app.add_middleware(HTTPSRedirectMiddleware)
 
 # Configure CORS
-# In development, allow all origins for easier development
-# In production, you should specify exact origins
-is_production = os.getenv('ENV') == 'production'
-
-# Allow all origins in development, specific origins in production
 origins = [
     "http://localhost:3000",
     "http://localhost:3001",
@@ -138,12 +134,11 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if is_production else ["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Content-Disposition", "Content-Length"],
-    max_age=600  # Cache preflight requests for 10 minutes
+    expose_headers=["Content-Disposition", "Content-Length"]
 )
 
 # Include routers
@@ -154,6 +149,7 @@ app.include_router(mood_router, prefix="/mood", tags=["mood"])
 app.include_router(auth_router, tags=["auth"])
 app.include_router(mood_session_router, prefix="/mood-session", tags=["mood-session"])
 app.include_router(goals_router, prefix="/api", tags=["goals"])
+app.include_router(perma_chat_router, prefix="/api", tags=["perma"])
 
 # Request/Response Models
 class PermaChatRequest(BaseModel):

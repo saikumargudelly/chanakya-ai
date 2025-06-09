@@ -3,21 +3,16 @@ import { useAuth } from './AuthContext';
 import API from '../services/api';
 
 export default function Profile({ onClose }) {
-  const auth = useAuth();
-  const token = auth?.token;
-  const user = auth?.user;
-  const updateUser = auth?.updateUser;
-  const [profile, setProfile] = useState(null);
+  const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    mobile_number: '',
-    address: '',
-    gender: 'neutral',
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    email: user?.email || '',
+    mobile_number: user?.mobile_number || '',
+    gender: user?.gender || 'neutral',
   });
 
   // Fetch profile on mount
@@ -26,30 +21,24 @@ export default function Profile({ onClose }) {
       setLoading(true);
       setError('');
       try {
-        const res = await API.get('/auth/profile', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setProfile(res.data);
-        setForm({
-          first_name: res.data.first_name || '',
-          last_name: res.data.last_name || '',
-          email: res.data.email || '',
-          mobile_number: res.data.mobile_number || '',
-          address: res.data.address || '',
-          gender: res.data.gender || 'neutral',
-        });
+        const res = await API.get('/auth/profile');
+        const profileData = res.data;
+        setForm(prev => ({
+          ...prev,
+          first_name: profileData.first_name || prev.first_name,
+          last_name: profileData.last_name || prev.last_name,
+          email: profileData.email || prev.email,
+          mobile_number: profileData.mobile_number || prev.mobile_number,
+          gender: profileData.gender || prev.gender,
+        }));
       } catch (err) {
         setError('Failed to load profile.');
+        console.error('Error fetching profile:', err);
       }
       setLoading(false);
     }
     fetchProfile();
-  }, [token]);
-
-  // Handle input changes
-  const handleChange = e => {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-  };
+  }, []);
 
   // Handle submit
   const handleSubmit = async e => {
@@ -58,101 +47,66 @@ export default function Profile({ onClose }) {
     setError('');
     setLoading(true);
     
-    // Prepare the update data
-    const updateData = {
-      first_name: form.first_name,
-      last_name: form.last_name,
-      gender: form.gender,
-      mobile_number: form.mobile_number,
-      address: form.address
-    };
-
-    console.log('Sending profile update:', updateData);
+    const formData = new FormData();
+    formData.append('first_name', form.first_name);
+    formData.append('last_name', form.last_name);
+    formData.append('gender', form.gender);
+    formData.append('mobile_number', form.mobile_number);
 
     try {
-      // Send data in the request body
-      const response = await API.put('/auth/users/me/', updateData, {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+      console.log('Submitting form with gender:', form.gender);
+      const response = await API.put('/auth/users/me/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
         }
       });
       
-      console.log('Profile update response:', response.data);
+      const updatedData = response.data;
+      console.log('Received updated profile:', updatedData);
+      
+      if (!updatedData.gender) {
+        console.error('No gender field in response:', updatedData);
+        throw new Error('Invalid response from server');
+      }
+
+      // First update local state
+      setForm(prev => ({
+        ...prev,
+        ...updatedData
+      }));
+      
+      // Then update the global auth context with complete user data
+      updateUser({
+        ...user,
+        ...updatedData,
+        gender: updatedData.gender // Pass the gender directly from the server response
+      });
       
       setSuccess('Profile updated successfully!');
-      
-      // Update local profile state
-      const updatedProfile = { ...profile, ...updateData };
-      setProfile(updatedProfile);
-      
-      // Update the user data in AuthContext if updateUser is available
-      if (typeof updateUser === 'function') {
-        try {
-          updateUser({
-            first_name: updatedProfile.first_name,
-            last_name: updatedProfile.last_name,
-            email: updatedProfile.email,
-            mobile_number: updatedProfile.mobile_number,
-            gender: updatedProfile.gender
-          });
-          console.log('Auth context updated successfully');
-        } catch (updateError) {
-          console.warn('Failed to update auth context:', updateError);
-          // Don't fail the whole operation if just the context update fails
-        }
-      } else {
-        console.warn('updateUser function not available in auth context');
-      }
-      
-      // Log the success
-      console.log('Profile updated successfully');
     } catch (err) {
-      // Log complete error details
-      const errorDetails = {
-        message: err.message,
-        response: {
-          data: err.response?.data,
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          headers: err.response?.headers,
-        },
-        request: {
-          url: err.config?.url,
-          method: err.config?.method,
-          data: err.config?.data,
-          headers: err.config?.headers,
-        },
-      };
-      
-      console.error('Profile update error details:', errorDetails);
-      
-      // Try to get a more specific error message
+      console.error('Error updating profile:', err);
       let errorMessage = 'Failed to update profile. ';
-      
-      if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        if (err.response.data) {
-          if (typeof err.response.data === 'object') {
-            errorMessage += Object.entries(err.response.data)
-              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(' ') : value}`)
-              .join(' | ');
-          } else if (typeof err.response.data === 'string') {
-            errorMessage += err.response.data;
-          }
+      if (err.response?.data) {
+        if (typeof err.response.data === 'object') {
+          errorMessage += Object.entries(err.response.data)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(' ') : value}`)
+            .join(' | ');
+        } else if (typeof err.response.data === 'string') {
+          errorMessage += err.response.data;
         }
-        errorMessage += ` (Status: ${err.response.status})`;
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error('No response received:', err.request);
-        errorMessage += 'No response received from server. Please check your connection.';
       } else {
-        // Something happened in setting up the request
-        console.error('Request setup error:', err.message);
-        errorMessage += err.message;
+        errorMessage += err.message || 'An unexpected error occurred.';
       }
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Handle input changes
+  const handleChange = e => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -167,7 +121,7 @@ export default function Profile({ onClose }) {
         
         <div className="text-center mb-6">
           <div className="w-20 h-20 rounded-full bg-indigo-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-md">
-            {profile?.first_name ? profile.first_name.charAt(0).toUpperCase() : 'U'}
+            {form.first_name ? form.first_name.charAt(0).toUpperCase() : 'U'}
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
             {loading ? 'Loading...' : `${form.first_name} ${form.last_name}`}
@@ -204,18 +158,6 @@ export default function Profile({ onClose }) {
           </div>
 
           <div>
-            <label className="block text-gray-800 dark:text-gray-100 font-medium mb-1">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              className="w-full p-2 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 transition-colors"
-              disabled={loading}
-            />
-          </div>
-
-          <div>
             <label className="block text-gray-800 dark:text-gray-100 font-medium mb-1">Mobile Number</label>
             <input
               type="tel"
@@ -228,20 +170,8 @@ export default function Profile({ onClose }) {
           </div>
 
           <div>
-            <label className="block text-gray-800 dark:text-gray-100 font-medium mb-1">Address</label>
-            <textarea
-              name="address"
-              value={form.address}
-              onChange={handleChange}
-              className="w-full p-2 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 transition-colors"
-              rows="3"
-              disabled={loading}
-            />
-          </div>
-
-          <div>
             <label className="block text-gray-800 dark:text-gray-100 font-medium mb-1">Gender</label>
-            <select 
+            <select
               className="w-full p-2 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 transition-colors" 
               name="gender" 
               value={form.gender} 
