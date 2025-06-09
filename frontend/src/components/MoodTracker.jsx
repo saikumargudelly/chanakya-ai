@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { PERMA_PILLARS, PERMA_QUESTIONS, PERMA_DESCRIPTIONS } from '../constants/permaConstants';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, AnimatePresence as MotionAnimatePresence } from 'framer-motion';
+import MoodSelector from './MoodSelector';
 import { 
   FiCheck, 
   FiChevronLeft, 
   FiChevronRight, 
   FiSend,
   FiRefreshCw,
-  FiMessageSquare
+  FiMessageSquare,
+  FiX
 } from 'react-icons/fi';
 import { 
   analyzePERMA,
@@ -65,6 +67,16 @@ const MoodTracker = () => {
   const todaysQuestions = useMemo(() => {
     return getTodaysQuestions(PERMA_QUESTIONS);
   }, []);
+  
+  // Refs
+  const chatEndRef = useRef(null);
+  
+  // Auto-scroll to bottom of chat when messages change
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory]);
   
   // Initialize chat with AI based on PERMA scores
   const initializeChat = useCallback(async (scores) => {
@@ -190,7 +202,7 @@ const MoodTracker = () => {
   
 
 
-  // Handle answer selection
+  // Handle answer selection with animation
   const handleAnswer = useCallback((questionIndex, value) => {
     const newAnswers = [...answers];
     newAnswers[questionIndex] = value;
@@ -200,6 +212,11 @@ const MoodTracker = () => {
     if (questionIndex < todaysQuestions.length - 1) {
       setTimeout(() => {
         setCurrentQuestionIndex(prev => Math.min(prev + 1, todaysQuestions.length - 1));
+      }, 500); // Slightly longer delay for smoother transition
+    } else {
+      // Show celebration effect on last answer
+      setTimeout(() => {
+        // You can add a celebration effect here
       }, 300);
     }
   }, [answers, todaysQuestions.length]);
@@ -480,103 +497,253 @@ const MoodTracker = () => {
     );
   };
   
-  // Render the analysis results
+  // Render the analysis results with enhanced UI
   const renderAnalysis = () => {
     if (!permaScores) return null;
     
     const averageScore = calculateAverageScore(permaScores);
     const strongestPillar = getStrongestPillar(permaScores);
     const weakestPillar = getWeakestPillar(permaScores);
+    const scoreEntries = Object.entries(permaScores);
     
     return (
-      <div className="space-y-6 w-full">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+      <motion.div 
+        className="space-y-8 w-full"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
             Your Wellbeing Analysis
           </h2>
           <p className="text-gray-600 dark:text-gray-300">
             Here's how you're doing across the PERMA wellbeing dimensions
           </p>
-        </div>
+        </motion.div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(permaScores).map(([pillar, score]) => (
-            renderPillarScore(pillar, score)
+        {/* Overall Score Card */}
+        <motion.div 
+          className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl p-6 shadow-xl overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-xl font-semibold mb-1">Overall Wellbeing Score</h3>
+              <p className="text-indigo-100">Based on your PERMA dimensions</p>
+            </div>
+            <div className="mt-4 md:mt-0">
+              <div className="text-5xl font-bold">{averageScore.toFixed(1)}<span className="text-2xl text-indigo-200">/10</span></div>
+            </div>
+          </div>
+          <div className="mt-6 bg-white/10 backdrop-blur-sm p-4 rounded-lg">
+            <p className="text-sm">
+              Your strongest area is <span className="font-semibold">{strongestPillar.replace('_', ' ')}</span> and 
+              you might want to focus on improving <span className="font-semibold">{weakestPillar.replace('_', ' ')}</span>.
+            </p>
+          </div>
+        </motion.div>
+        
+        {/* PERMA Pillars Grid */}
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: {
+                delayChildren: 0.4,
+                staggerChildren: 0.1
+              }
+            }
+          }}
+        >
+          {scoreEntries.map(([pillar, score]) => (
+            <motion.div
+              key={pillar}
+              variants={{
+                hidden: { y: 20, opacity: 0 },
+                visible: { 
+                  y: 0, 
+                  opacity: 1,
+                  transition: {
+                    type: 'spring',
+                    stiffness: 100,
+                    damping: 10
+                  }
+                }
+              }}
+            >
+              {renderPillarScore(pillar, score)}
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
         
-        <div className="mt-8 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-xl">
-          <h3 className="text-lg font-semibold text-indigo-800 dark:text-indigo-200 mb-3">
-            Your Wellbeing Insights
-          </h3>
-          <p className="text-gray-700 dark:text-gray-300 mb-4">
-            Your strongest area is <span className="font-medium">{strongestPillar}</span> and 
-            you might want to focus on improving <span className="font-medium">{weakestPillar}</span>.
-          </p>
-          <button
-            onClick={() => setShowChat(true)}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <FiMessageSquare className="mr-2" />
-            Get Personalized Tips
-          </button>
-        </div>
-      </div>
+        {/* Action Card */}
+        <motion.div 
+          className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Need help improving your wellbeing?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Chat with our wellbeing assistant for personalized tips and guidance.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowChat(true)}
+              className="mt-4 md:mt-0 inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <FiMessageSquare className="mr-2" />
+              Chat with Wellbeing Assistant
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
     );
   };
   
-  // Render the current question
+  // Render the current question with enhanced UI
   const renderQuestion = () => {
     if (!currentQuestion) return null;
     
+    const isMoodQuestion = currentQuestion.question.toLowerCase().includes('how are you feeling');
+    const progress = ((currentQuestionIndex + 1) / todaysQuestions.length) * 100;
+    
     return (
-      <motion.div 
-        key={currentQuestionIndex}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.3 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6"
-      >
+      <div className="relative">
+        {/* Progress bar */}
         <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-              {currentQuestion.pillar}
-            </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {currentQuestionIndex + 1} of {todaysQuestions.length}
-            </span>
+          <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <span>Progress</span>
+            <span>{Math.round(progress)}%</span>
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {currentQuestion.question}
-          </h3>
+          <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+            <motion.div 
+              className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
         </div>
         
-        <div className="space-y-3 mb-6">
-          {currentQuestion.options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => handleAnswer(currentQuestionIndex, option.value)}
-              className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                answers[currentQuestionIndex] === option.value
-                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200'
-                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300'
-              }`}
+        <MotionAnimatePresence mode="wait">
+          <motion.div
+            key={currentQuestionIndex}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6"
+          >
+            <div className="flex justify-between items-center mb-2">
+              <span className="inline-block px-3 py-1 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">
+                {currentQuestion.pillar.replace('_', ' ')}
+              </span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {currentQuestionIndex + 1} of {todaysQuestions.length}
+              </span>
+            </div>
+            
+            <motion.h3 
+              className="text-xl font-semibold text-gray-900 dark:text-white mb-6"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
             >
-              <div className="flex items-center">
-                <div className={`w-5 h-5 rounded-full border flex items-center justify-center mr-3 flex-shrink-0 ${
-                  answers[currentQuestionIndex] === option.value
-                    ? 'border-indigo-500 bg-indigo-500 text-white'
-                    : 'border-gray-300 dark:border-gray-600'
-                }`}>
-                  {answers[currentQuestionIndex] === option.value && <FiCheck size={14} />}
-                </div>
-                <span>{option.label}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+              {currentQuestion.question}
+            </motion.h3>
+            
+            {isMoodQuestion ? (
+              <MoodSelector 
+                selectedValue={answers[currentQuestionIndex]} 
+                onSelect={(value) => handleAnswer(currentQuestionIndex, value)} 
+              />
+            ) : (
+        
+              <motion.div 
+                className="space-y-3 mb-6"
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: {
+                    opacity: 1,
+                    transition: {
+                      staggerChildren: 0.1
+                    }
+                  }
+                }}
+                initial="hidden"
+                animate="show"
+              >
+                {currentQuestion.options.map((option, index) => (
+                  <motion.button
+                    key={option.value}
+                    type="button"
+                    variants={{
+                      hidden: { opacity: 0, y: 10 },
+                      show: { 
+                        opacity: 1, 
+                        y: 0,
+                        transition: {
+                          type: 'spring',
+                          stiffness: 300,
+                          damping: 20
+                        }
+                      }
+                    }}
+                    onClick={() => handleAnswer(currentQuestionIndex, option.value)}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                      answers[currentQuestionIndex] === option.value
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200 shadow-md'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:shadow-sm'
+                    }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="flex items-center">
+                      <motion.div 
+                        className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 ${
+                          answers[currentQuestionIndex] === option.value
+                            ? 'border-indigo-500 bg-indigo-500 text-white'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                        layoutId={`option-${currentQuestionIndex}-${index}`}
+                      >
+                        {answers[currentQuestionIndex] === option.value && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                          >
+                            <FiCheck size={14} />
+                          </motion.div>
+                        )}
+                      </motion.div>
+                      <span>{option.label}</span>
+                    </div>
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </motion.div>
+        </MotionAnimatePresence>
         
         <div className="flex justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
           <button
@@ -619,72 +786,129 @@ const MoodTracker = () => {
             </button>
           )}
         </div>
-      </motion.div>
+      </div>
     );
   };
   
-  // Render chat interface
+  // Render chat interface with enhanced UI
   const renderChat = () => {
     if (!showChat) return null;
     
     return (
-      <div className="mt-8 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h3 className="font-medium text-gray-900 dark:text-white">Wellbeing Assistant</h3>
-          <button 
-            onClick={() => setShowChat(false)}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-          >
-            ×
-          </button>
+      <motion.div 
+        className="mt-8 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.3 }}
+      >
+        {/* Chat Header */}
+        <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <FiMessageSquare className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Wellbeing Assistant</h3>
+                <p className="text-xs text-indigo-100">Here to help you improve</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowChat(false)}
+              className="p-1 rounded-full hover:bg-white/20 transition-colors"
+              aria-label="Close chat"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
-        <div className="h-64 overflow-y-auto p-4 space-y-4">
-          {chatHistory.map((msg, i) => (
-            <div 
-              key={i}
-              className={`flex ${
-                msg.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              <div 
-                className={`max-w-3/4 rounded-lg p-3 ${
-                  msg.role === 'user'
-                    ? 'bg-indigo-100 dark:bg-indigo-900/50 text-gray-900 dark:text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+        {/* Chat Messages */}
+        <div 
+          className="h-80 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50"
+          ref={chatEndRef}
+        >
+          {chatHistory.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-6">
+              <div className="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mb-4">
+                <FiMessageSquare className="w-8 h-8 text-indigo-500" />
+              </div>
+              <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">How can I help you today?</h4>
+              <p className="text-gray-500 dark:text-gray-400 text-sm max-w-md">
+                Ask me anything about your wellbeing, or get personalized tips based on your PERMA scores.
+              </p>
+            </div>
+          ) : (
+            chatHistory.map((msg, i) => (
+              <motion.div 
+                key={i}
+                className={`flex ${
+                  msg.role === 'user' ? 'justify-end' : 'justify-start'
                 }`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
               >
-                {msg.content}
-              </div>
-            </div>
-          ))}
+                <div 
+                  className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-4 ${
+                    msg.role === 'user'
+                      ? 'bg-indigo-500 text-white rounded-br-none'
+                      : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-none'
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </motion.div>
+            ))
+          )}
+          
           {isChatLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 text-gray-800 dark:text-gray-200">
-                Thinking...
+            <motion.div 
+              className="flex justify-start"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <div className="bg-white dark:bg-gray-800 rounded-2xl rounded-bl-none p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
         
-        <form onSubmit={handleChatSubmit} className="p-4 border-t border-gray-200 dark:border-gray-700 flex">
-          <input
-            type="text"
-            value={userMessage}
-            onChange={(e) => setUserMessage(e.target.value)}
-            placeholder="Ask about your wellbeing..."
-            className="flex-1 border border-gray-300 dark:border-gray-600 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            disabled={isChatLoading}
-          />
-          <button
-            type="submit"
-            className="bg-indigo-600 text-white px-4 py-2 rounded-r-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!userMessage.trim() || isChatLoading}
-          >
-            <FiSend />
-          </button>
+        {/* Chat Input */}
+        <form 
+          onSubmit={handleChatSubmit} 
+          className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800"
+        >
+          <div className="relative">
+            <input
+              type="text"
+              value={userMessage}
+              onChange={(e) => setUserMessage(e.target.value)}
+              placeholder="Type your message..."
+              className="w-full pr-12 pl-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              disabled={isChatLoading}
+              aria-label="Type your message"
+            />
+            <button
+              type="submit"
+              disabled={!userMessage.trim() || isChatLoading}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Send message"
+            >
+              <FiSend className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+            Ask about your wellbeing, mood, or get personalized tips
+          </p>
         </form>
-      </div>
+      </motion.div>
     );
   };
   
