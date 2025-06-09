@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from './components/AuthContext';  
+import { AuthProvider, useAuth } from './context/AuthContext';  
 import { GoalProvider } from './context/GoalContext';
-import RukminiChat from './components/RukminiChat';
+import RukminiChat from './components/chat/RukminiChat';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Layout Components
-import Sidebar from './components/Sidebar';
-import TopNav from './components/TopNav';
+import Sidebar from './components/layout/Sidebar';
+import TopNav from './components/layout/TopNav';
 
 // Pages
-import Dashboard from './components/Dashboard';
-import BudgetAnalytics from './components/BudgetAnalytics';
-import FinancialPosition from './components/FinancialPosition';
-import GoalTracker from './components/GoalTracker';
-import MoodTracker from './components/MoodTracker';
-import Login from './components/Login';
-import Signup from './components/Signup';
-import Home from './components/Home';
+import Dashboard from "./pages/dashboard/Dashboard";
+import BudgetAnalytics from './pages/BudgetAnalytics/BudgetAnalytics';
+import FinancialPosition from './pages/FinancialPosition/FinancialPosition';
+import GoalTracker from './pages/GoalTracker/GoalTracker';
+import MoodTracker from './pages/MoodTracker/MoodTracker';
+import Login from './pages/auth/Login';
+import Signup from './pages/auth/Signup';
+import Home from './pages/Home';
 
 // Create a query client with default options
 const queryClient = new QueryClient({
@@ -43,18 +43,68 @@ const LoadingSpinner = () => (
 
 // A wrapper for protected routes
 const ProtectedRoute = ({ children }) => {
-  const { user, isLoading, token } = useAuth();
+  const { user, isAuthenticated, isLoading, refreshToken } = useAuth();
   const location = useLocation();
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasToken = !!localStorage.getItem('token');
 
-  if (isLoading || (!user && token)) {
+  // Handle initial auth check and token refresh
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      // If we're already authenticated, no need to check
+      if (isAuthenticated) {
+        setInitialCheckDone(true);
+        return;
+      }
+
+      // If we have a token but not authenticated, try to refresh it
+      if (hasToken && !isAuthenticated && !isRefreshing) {
+        console.log('[ProtectedRoute] Token found but not authenticated, attempting refresh...');
+        setIsRefreshing(true);
+        try {
+          const refreshSuccess = await refreshToken();
+          if (!refreshSuccess) {
+            console.log('[ProtectedRoute] Token refresh failed, redirecting to login');
+            // Clear any invalid tokens
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+          }
+        } catch (error) {
+          console.error('[ProtectedRoute] Error during token refresh:', error);
+        } finally {
+          setIsRefreshing(false);
+          setInitialCheckDone(true);
+        }
+      } else {
+        // No token or already checked
+        setInitialCheckDone(true);
+      }
+    };
+
+    checkAuthStatus();
+  }, [isAuthenticated, hasToken, refreshToken, isRefreshing]);
+
+  // Show loading spinner while checking auth state
+  if (isLoading || !initialCheckDone || isRefreshing) {
     return <LoadingSpinner />;
   }
 
-  if (!user && !isLoading) {
+  // If not authenticated, redirect to login
+  if (!isAuthenticated || !user) {
+    console.log('[ProtectedRoute] Not authenticated, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return children;
+  // If we have valid user data, render the protected content
+  if (user && (user.id || user.userId || user.user_id)) {
+    return children;
+  }
+
+  // If we get here, there's an issue with user data
+  console.warn('[ProtectedRoute] Invalid user data, redirecting to login');
+  return <Navigate to="/login" state={{ from: location }} replace />;
 };
 
 // A wrapper for public-only routes

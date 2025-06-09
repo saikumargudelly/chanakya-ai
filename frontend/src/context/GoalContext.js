@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { goalService } from '../services/goalService';
-import { useAuth } from '../components/AuthContext.jsx';
+import { goalService } from '../services/goals/goalService';
+import { useAuth } from './AuthContext';
 
 const GoalContext = createContext();
 

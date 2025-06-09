@@ -1,4 +1,21 @@
 export type MoodType = 'calm' | 'happy' | 'excited' | 'stressed' | 'neutral';
+export type Gender = 'male' | 'female' | 'neutral' | 'other';
+
+export interface ChatApiResponse {
+  response: string;
+  quickReplies?: QuickReply[];
+  mood?: MoodType;
+  metadata?: Record<string, any>;
+}
+
+export interface User {
+  id?: string;
+  name: string;
+  gender: Gender;
+  mood?: MoodType;
+  wisdomLevel?: number;
+  xp?: number;
+}
 
 export interface Message {
   id: string;
@@ -19,7 +36,7 @@ export interface QuickReply {
 export interface ChatConfig {
   isOpen: boolean;
   assistantName: string;
-  assistantGender: 'male' | 'female' | 'neutral';
+  assistantGender: 'male' | 'female' | 'neutral' | 'other';
   theme: {
     primary: string;
     secondary: string;
@@ -29,7 +46,7 @@ export interface ChatConfig {
 }
 
 export interface UserContext {
-  gender: 'male' | 'female' | 'neutral';
+  gender: Gender;
   name: string;
   mood: MoodType;
   wisdomLevel: number;

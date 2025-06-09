@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
 import { Message, MoodType, ChatConfig, UserContext as UserContextType, ChatContextType } from '../types/chat';
-import { useAuth } from '../components/AuthContext';
+import { useAuth } from './AuthContext';
 import api from '../services/api';
 
 interface ChatApiResponse {
