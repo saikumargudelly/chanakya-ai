@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ChatProvider, useChat } from './context/ChatContext';
 import ChatDrawer from './ChatDrawer';
 import Draggable from './Draggable';
-import { AuthProvider, useAuth } from '../../contexts/AuthContext';
+import { AuthProvider, useAuth } from '../../context/AuthContext';
 
 // Dark mode hook
 const useDarkMode = () => {

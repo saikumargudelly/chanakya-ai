@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion';
 import { useChat } from './context/ChatContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { MoodType } from '../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { QuickReplyBar } from './QuickReplyBar';

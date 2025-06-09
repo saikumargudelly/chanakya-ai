@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
 
 interface User {
-  name: string;
+  name?: string;
+  first_name?: string;
   email: string;
   picture: string;
 }
