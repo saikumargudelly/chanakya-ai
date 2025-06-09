@@ -21,9 +21,12 @@ export function GoalProvider({ children }) {
   const loadGoals = useCallback(async () => {
     if (isAuthLoading) return;
     
-    const userId = user?.userId || user?.user_id || user?.id;
+    // Extract user ID from different possible locations in the user object
+    const userId = user?.id || user?.user_id || (user?.data?.user?.id) || null;
+    const authToken = localStorage.getItem('token');
     
-    if (!userId) {
+    if (!userId || !authToken) {
+      console.log('User not authenticated or missing token in loadGoals');
       setGoals([]);
       setIsLoading(false);
       return;
@@ -49,8 +52,11 @@ export function GoalProvider({ children }) {
   }, [loadGoals]);
 
   const addGoal = useCallback(async (goal) => {
-    const userId = user?.userId || user?.user_id || user?.id;
-    if (!userId) {
+    const userId = user?.id || user?.user_id || (user?.data?.user?.id) || null;
+    const authToken = localStorage.getItem('token');
+    
+    if (!userId || !authToken) {
+      console.error('User not authenticated or missing token in addGoal');
       throw new Error('User not authenticated. Please log in again.');
     }
     
@@ -65,9 +71,12 @@ export function GoalProvider({ children }) {
   }, [user, loadGoals]);
 
   const updateGoal = useCallback(async (goal) => {
-    const userId = user?.userId || user?.user_id || user?.id;
-    if (!userId) {
-      throw new Error('User not authenticated');
+    const userId = user?.id || user?.user_id || (user?.data?.user?.id) || null;
+    const authToken = localStorage.getItem('token');
+    
+    if (!userId || !authToken) {
+      console.error('User not authenticated or missing token in updateGoal');
+      throw new Error('User not authenticated. Please log in again.');
     }
     
     try {
@@ -81,9 +90,12 @@ export function GoalProvider({ children }) {
   }, [user, loadGoals]);
 
   const deleteGoal = useCallback(async (goalId) => {
-    const userId = user?.userId || user?.user_id || user?.id;
-    if (!userId) {
-      throw new Error('User not authenticated');
+    const userId = user?.id || user?.user_id || (user?.data?.user?.id) || null;
+    const authToken = localStorage.getItem('token');
+    
+    if (!userId || !authToken) {
+      console.error('User not authenticated or missing token in deleteGoal');
+      throw new Error('User not authenticated. Please log in again.');
     }
     
     try {

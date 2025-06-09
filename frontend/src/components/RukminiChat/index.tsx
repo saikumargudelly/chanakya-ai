@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ChatProvider, useChat } from './context/ChatContext';
 import ChatDrawer from './ChatDrawer';
 import Draggable from './Draggable';
-import { AuthProvider } from '../../contexts/AuthContext';
+import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 
 // Dark mode hook
 const useDarkMode = () => {
@@ -37,6 +37,12 @@ const useDarkMode = () => {
 const RukminiChatContent: React.FC = () => {
   console.log('Rendering RukminiChatContent');
   const isDarkMode = useDarkMode();
+  const { user } = useAuth();
+  
+  // Log user info for debugging
+  React.useEffect(() => {
+    console.log('Current user in RukminiChatContent:', user);
+  }, [user]);
   
   return (
     <>
@@ -45,9 +51,7 @@ const RukminiChatContent: React.FC = () => {
           <span className="text-2xl">🧙</span>
         </div>
       </Draggable>
-      <AuthProvider>
-        <ChatDrawer />
-      </AuthProvider>
+      <ChatDrawer />
     </>
   );
 };
@@ -94,12 +98,14 @@ const RukminiChat: React.FC<RukminiChatProps> = ({
   
   // Only render the ChatProvider once
   return React.useMemo(() => (
-    <ChatProvider 
-      key="chat-provider"
-      userName={userName}
-    >
-      <ChatContent />
-    </ChatProvider>
+    <AuthProvider>
+      <ChatProvider 
+        key="chat-provider"
+        userName={userName}
+      >
+        <ChatContent />
+      </ChatProvider>
+    </AuthProvider>
   ), [userName]);
 };
 

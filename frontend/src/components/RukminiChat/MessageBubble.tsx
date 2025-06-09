@@ -6,7 +6,7 @@ interface MessageBubbleProps {
   message: Message;
   isUser: boolean;
   assistantName: string;
-  assistantGender: 'male' | 'female' | 'neutral';
+  assistantGender: 'male' | 'female' | 'other';
 }
 
 const moodColors = {
@@ -30,15 +30,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (isUser) return null;
     
     // Use SVG images for assistant avatars
+    // Show Rukmini for male users, Krishna for female users, and Chanakya for others
     const avatarSrc = 
-      assistantGender === 'male' ? '/avatars/krish.svg' :
-      assistantGender === 'female' ? '/avatars/rukmini.svg' :
+      assistantGender === 'male' ? '/avatars/rukmini.svg' :
+      assistantGender === 'female' ? '/avatars/krish.svg' :
       '/avatars/chanakya.svg';
 
     const avatarAlt = 
-      assistantGender === 'male' ? 'Krish Avatar' :
-      assistantGender === 'female' ? 'Rukmini Avatar' :
-      'Assistant Avatar';
+      assistantGender === 'male' ? 'Rukmini' :
+      assistantGender === 'female' ? 'Krishna' :
+      'Chanakya';
     
     return (
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">

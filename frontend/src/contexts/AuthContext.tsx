@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
+// Define valid gender types
+type Gender = 'male' | 'female' | 'other';
+
 interface User {
+  id?: string;
   name: string;
   email: string;
   picture: string;
-  gender: string;
+  gender: Gender;
   first_name: string;
+  last_name?: string;
 }
 
 interface AuthContextType {
@@ -41,16 +46,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateUser = (userData: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...userData };
-      // Make sure gender is always set to a valid value
-      if (!updatedUser.gender || !['male', 'female', 'neutral'].includes(updatedUser.gender)) {
-        updatedUser.gender = 'neutral';
+    console.log('AuthContext.updateUser called with:', {
+      userData,
+      currentUser: user,
+      hasGender: !!userData?.gender,
+      genderValue: userData?.gender
+    });
+    
+    setUser(prevUser => {
+      if (!prevUser) {
+        console.log('No previous user data available');
+        return prevUser;
       }
-      setUser(updatedUser);
-      // Important: Save the complete updated user object to localStorage
+      
+      // Ensure gender is always a valid value (male, female, or other)
+      const validGender = (gender: any): Gender => {
+        const validGenders: Gender[] = ['male', 'female', 'other'];
+        const valid = validGenders.includes(gender) ? gender as Gender : 'other';
+        console.log('Validating gender:', { input: gender, valid });
+        return valid;
+      };
+      
+      const updatedUser = { 
+        ...prevUser, 
+        ...userData,
+        // Always use the provided gender if it exists, otherwise keep the previous one
+        gender: userData.gender !== undefined ? validGender(userData.gender) : prevUser.gender
+      };
+      
+      console.log('Updating user data:', { 
+        previous: prevUser, 
+        updates: userData, 
+        result: updatedUser,
+        genderUpdated: prevUser.gender !== updatedUser.gender
+      });
+      
+      // Save to localStorage
       localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
+      console.log('Saved user data to localStorage');
+      
+      return updatedUser;
+    });
   };
 
   const login = async (email: string, password: string | null) => {
@@ -91,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: email.split('@')[0],
           email: email,
           picture: '',
-          gender: 'neutral',
+          gender: 'other',
           first_name: email.split('@')[0],
         };
         setUser(userData);

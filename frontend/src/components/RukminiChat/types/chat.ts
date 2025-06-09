@@ -1,4 +1,4 @@
-export type Gender = 'male' | 'female' | 'neutral';
+export type Gender = 'male' | 'female' | 'other';
 export type MoodType = 'happy' | 'sad' | 'angry' | 'neutral' | 'calm' | 'excited' | 'stressed';
 
 export interface Message {

@@ -106,8 +106,8 @@ const AssistantAvatar = React.memo(({ gender, size = 'md' }: AssistantAvatarProp
   return (
     <div className={`${sizeClasses} rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow-md overflow-hidden`}>
       <img 
-        src={gender === 'male' ? '/avatars/krish.svg' : gender === 'female' ? '/avatars/rukmini.svg' : '/avatars/chanakya.svg'} 
-        alt={gender === 'male' ? 'Krish' : gender === 'female' ? 'Rukmini' : 'Chanakya'}
+        src={gender === 'male' ? '/avatars/rukmini.svg' : gender === 'female' ? '/avatars/krish.svg' : '/avatars/chanakya.svg'} 
+        alt={gender === 'male' ? 'Rukmini' : gender === 'female' ? 'Krish' : 'Chanakya'}
         className="w-full h-full object-cover"
       />
     </div>

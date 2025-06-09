@@ -25,14 +25,8 @@ export default function GoalModal({ isOpen, onClose }) {
     e.preventDefault();
     setError('');
 
-    // Debug: Log user object
-    console.log('Current user object:', user);
-    console.log('User ID from user object:', user?.userId || user?.id);
-    console.log('Is user authenticated?', !!user);
-
     // Check if user is authenticated
     if (!user) {
-      console.error('No user object found');
       setError('You need to be logged in to add a goal');
       return;
     }
@@ -42,11 +36,17 @@ export default function GoalModal({ isOpen, onClose }) {
       setError('Goal name is required');
       return;
     }
-    if (!targetAmount || isNaN(targetAmount) || Number(targetAmount) <= 0) {
-      setError('Please enter a valid target amount');
+    
+    // Validate target amount
+    const targetAmountValue = parseFloat(targetAmount);
+    if (isNaN(targetAmountValue) || targetAmountValue <= 0) {
+      setError('Please enter a valid target amount (must be greater than 0)');
       return;
     }
-    if (!deadlineMonths || isNaN(deadlineMonths) || Number(deadlineMonths) < 1) {
+    
+    // Validate deadline months
+    const deadlineMonthsValue = parseInt(deadlineMonths, 10);
+    if (isNaN(deadlineMonthsValue) || deadlineMonthsValue < 1) {
       setError('Please enter a valid timeline (at least 1 month)');
       return;
     }
@@ -57,23 +57,26 @@ export default function GoalModal({ isOpen, onClose }) {
       setError('Your session has expired. Please log in again.');
       return;
     }
-    console.log('Token being sent for addGoal:', token);
+
     try {
       await addGoal({
-        id: uuidv4(),
         goalName: goalName.trim(),
-        targetAmount: parseFloat(targetAmount),
-        deadlineMonths: parseInt(deadlineMonths, 10),
-        createdAt: new Date().toISOString(),
+        targetAmount: targetAmountValue,
+        deadlineMonths: deadlineMonthsValue,
         savedAmount: 0
       });
       onClose();
     } catch (err) {
-      if (err.message && err.message.toLowerCase().includes('credential')) {
+      // Handle different types of errors
+      if (err.response?.data?.detail) {
+        // Handle API validation errors
+        setError(err.response.data.detail);
+      } else if (err.message && err.message.toLowerCase().includes('credential')) {
         setError('Your session has expired. Please log in again.');
       } else {
         setError(err.message || 'Failed to add goal. Please try again.');
       }
+      console.error('Error adding goal:', err);
     }
   };
 
@@ -132,10 +135,18 @@ export default function GoalModal({ isOpen, onClose }) {
             <input
               type="number"
               value={deadlineMonths}
-              onChange={(e) => setDeadlineMonths(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Only allow positive integers or empty string
+                if (value === '' || /^\d+$/.test(value)) {
+                  setDeadlineMonths(value);
+                }
+              }}
               className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
               placeholder="E.g., 12"
               min="1"
+              step="1"
+              inputMode="numeric"
             />
           </div>
 

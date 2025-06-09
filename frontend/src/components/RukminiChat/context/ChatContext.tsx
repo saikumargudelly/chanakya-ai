@@ -6,34 +6,38 @@ import { useAuth } from '../../../components/AuthContext';
 import api from '../../../services/api';
 
 // ===== Helper Functions =====
-const getAssistantName = (userGender: Gender): string => {
-  switch (userGender) {
-    case 'male': return 'Krishna';
-    case 'female': return 'Rukmini';
-    default: return 'Chanakya';
+type AssistantGender = 'male' | 'female' | 'other';
+
+// Map user gender to assistant's characteristics
+const getAssistantConfig = (userGender: Gender | null | undefined): { 
+  gender: AssistantGender; 
+  name: string; 
+  model: string 
+} => {
+  if (!userGender || userGender === 'other') {
+    return { gender: 'other', name: 'Chanakya', model: 'chanakya' };
   }
+  if (userGender === 'male') {
+    return { gender: 'female', name: 'Rukmini', model: 'rukhmini' };
+  }
+  // For female users
+  return { gender: 'male', name: 'Krishna', model: 'krishna' };
 };
 
-const getAssistantGender = (userGender: Gender): Gender => {
-  switch (userGender) {
-    case 'male': return 'male';
-    case 'female': return 'female';
-    default: return 'neutral';
-  }
-};
+// Backward compatibility functions
+const getAssistantName = (userGender: Gender): string => 
+  getAssistantConfig(userGender).name;
 
-const getModelName = (userGender: Gender): string => {
-  switch (userGender) {
-    case 'male': return 'krishna';
-    case 'female': return 'rukhmini';
-    default: return 'chanakya';
-  }
-};
+const getAssistantGender = (userGender: Gender): AssistantGender => 
+  getAssistantConfig(userGender).gender;
+
+const getModelName = (userGender: Gender): string => 
+  getAssistantConfig(userGender).model;
 
 // ===== Default Values =====
 const defaultUserContext: UserContextType = {
   name: 'User',
-  gender: 'neutral',
+  gender: 'other',
   mood: 'neutral',
   wisdomLevel: 1,
   xp: 0,
@@ -42,7 +46,7 @@ const defaultUserContext: UserContextType = {
 const defaultConfig: ChatConfig = {
   isOpen: false,
   assistantName: '',
-  assistantGender: 'neutral',
+  assistantGender: 'other',
   theme: {
     primary: '#4f46e5',
     secondary: '#7c3aed',
@@ -81,6 +85,18 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }
   
   // Add initial greeting message when chat opens and messages are empty
   useEffect(() => {
+    console.log('User context updated in ChatDrawer:', { 
+      userContext,
+      user: user,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (userContext?.mood) {
+      // Explicitly cast to MoodType to see if it resolves the type error
+      const moodToSet: MoodType = userContext.mood as MoodType;
+      setMood(moodToSet);
+    }
+
     if (isOpen && messages.length === 0 && user?.first_name) {
       const initialMessage: Message = {
         id: Date.now().toString() + '_greeting',
@@ -93,12 +109,30 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }
     }
   }, [isOpen, messages.length, user?.first_name]); // Depend on isOpen, messages length, and user first name
   
-  // Determine assistant name and gender based on user gender whenever user changes
+  // Determine assistant configuration based on user gender whenever user changes
   const { assistantGender, assistantName } = useMemo(() => {
-    console.log('Computing assistant gender/name, user gender is:', user?.gender);
-    const calculatedAssistantGender: Gender = user?.gender === 'female' ? 'male' : (user?.gender === 'male' ? 'female' : 'neutral');
-    const calculatedAssistantName = calculatedAssistantGender === 'male' ? 'Krishna' : (calculatedAssistantGender === 'female' ? 'Rukmini' : 'Assistant');
-    return { assistantGender: calculatedAssistantGender, assistantName: calculatedAssistantName };
+    // Log detailed user info for debugging
+    console.log('Computing assistant config, user data:', {
+      userId: user?.id,
+      userGender: user?.gender,
+      userName: user?.name,
+      userEmail: user?.email,
+      userFullData: user
+    });
+    
+    // Get the config based on user's gender
+    const config = getAssistantConfig(user?.gender);
+    
+    console.log('Computed assistant config:', {
+      config,
+      userGender: user?.gender,
+      timestamp: new Date().toISOString()
+    });
+    
+    return { 
+      assistantGender: config.gender, 
+      assistantName: config.name 
+    };
   }, [user]);
 
   const config: ChatConfig = useMemo(() => ({
@@ -111,8 +145,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }
     console.log('Computing userContext, user gender is:', user?.gender);
     return ({
       ...defaultUserContext,
-      name: userName || user?.first_name || user?.email.split('@')[0] || 'User',
-      gender: user?.gender === 'female' ? 'female' : (user?.gender === 'male' ? 'male' : 'neutral'),
+      name: userName || user?.first_name || user?.email?.split('@')[0] || 'User',
+      gender: user?.gender || 'other',
     });
   }, [user, userName]);
 

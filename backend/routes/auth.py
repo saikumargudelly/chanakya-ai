@@ -5,8 +5,8 @@ from jose.exceptions import JWTError, JWTClaimsError, ExpiredSignatureError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, validator
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Union
+from datetime import datetime, timedelta, timezone, date
+from typing import Optional, Dict, Any, Union, List
 from passlib.context import CryptContext
 import jwt
 import logging
@@ -16,6 +16,7 @@ import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import httpx
+from typing import TypeVar, Type, Optional as TypedOptional, Dict as TypedDict, Any as TypedAny, List as TypedList, Union as TypedUnion
 
 # Add the parent directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -65,11 +66,10 @@ class TokenData(BaseModel):
     user_id: Optional[int] = None
     exp: Optional[datetime] = None
 
-router = APIRouter()
-
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# Create router with /auth prefix
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Models
@@ -92,6 +92,62 @@ class UserInDB(BaseModel):
     first_name: str = ''
     last_name: str = ''
     is_active: bool = True
+
+def format_user_response(user: User):
+    """
+    Helper function to format user data consistently across endpoints.
+    Handles all profile fields and ensures consistent data types.
+    Safely handles missing attributes.
+    """
+    def safe_get_attr(obj, attr, default=None):
+        """Safely get attribute with a default value if it doesn't exist"""
+        try:
+            value = getattr(obj, attr, default)
+            return value if value is not None else default
+        except Exception:
+            return default
+
+    # Safely get date_of_birth and format it
+    date_of_birth = safe_get_attr(user, 'date_of_birth')
+    if date_of_birth:
+        try:
+            if isinstance(date_of_birth, str):
+                date_obj = datetime.strptime(date_of_birth, "%Y-%m-%d")
+                date_of_birth = date_obj.date().isoformat()
+            elif hasattr(date_of_birth, 'isoformat'):
+                date_of_birth = date_of_birth.isoformat()
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Error formatting date_of_birth: {e}")
+            date_of_birth = None
+
+    # Format timestamps safely
+    created_at = safe_get_attr(user, 'created_at')
+    created_at = created_at.isoformat() if hasattr(created_at, 'isoformat') else None
+    
+    updated_at = safe_get_attr(user, 'updated_at')
+    updated_at = updated_at.isoformat() if hasattr(updated_at, 'isoformat') else None
+
+    # Return all user fields in a consistent format with safe attribute access
+    return {
+        "id": safe_get_attr(user, 'id', 0),
+        "email": safe_get_attr(user, 'email', ''),
+        "first_name": safe_get_attr(user, 'first_name', ''),
+        "last_name": safe_get_attr(user, 'last_name', ''),
+        "mobile_number": safe_get_attr(user, 'mobile_number', ''),
+        "gender": (safe_get_attr(user, 'gender') or "neutral").lower(),
+        "date_of_birth": date_of_birth,
+        "address": safe_get_attr(user, 'address', ''),
+        "city": safe_get_attr(user, 'city', ''),
+        "state": safe_get_attr(user, 'state', ''),
+        "country": safe_get_attr(user, 'country', ''),
+        "postal_code": safe_get_attr(user, 'postal_code', ''),
+        "bio": safe_get_attr(user, 'bio', ''),
+        "profile_picture": safe_get_attr(user, 'profile_picture', ''),
+        "is_active": bool(safe_get_attr(user, 'is_active', True)),
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "google_id": safe_get_attr(user, 'google_id')
+    }
 
 # Helper functions
 def get_user(db: Session, email: str):
@@ -472,22 +528,47 @@ async def get_current_user_profile(
 ):
     """
     Get the current user's profile information.
+    Uses the format_user_response helper to ensure consistent response format.
     """
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "mobile_number": current_user.mobile_number,
-        "gender": current_user.gender,
-        "is_active": current_user.is_active,
-        "created_at": current_user.created_at,
-        "updated_at": current_user.updated_at
-    }
+    try:
+        # Use the helper function to format the response
+        profile_data = format_user_response(current_user)
+        
+        # Log the profile data for debugging
+        logger.info(f"Returning profile data for user {current_user.id}")
+        
+        return profile_data
+        
+    except Exception as e:
+        logger.error(f"Error getting user profile: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while retrieving your profile."
+        )
 
-@router.get("/users/me/", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_user)):
-    return current_user
+@router.get("/users/me", response_model=UserProfileResponse)
+async def read_users_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the current user's profile information.
+    This endpoint is an alias for /auth/profile for compatibility.
+    """
+    logger.info(f"Returning profile data for user {current_user.id}")
+    return format_user_response(current_user)
+
+# Also add a non-prefixed version for backward compatibility
+@router.get("/me", response_model=UserProfileResponse)
+async def get_current_user_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the current user's profile information.
+    """
+    logger.info(f"Returning profile data for user {current_user.id}")
+    return format_user_response(current_user)
 
 @router.put("/users/me/", response_model=UserResponse)
 async def update_user_profile(
@@ -495,62 +576,120 @@ async def update_user_profile(
     last_name: Optional[str] = Form(None),
     gender: Optional[str] = Form(None),
     mobile_number: Optional[str] = Form(None),
+    date_of_birth: Optional[str] = Form(None),
     address: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    country: Optional[str] = Form(None),
+    postal_code: Optional[str] = Form(None),
+    bio: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Update user profile"""
-    if gender and gender not in ['male', 'female', 'neutral']:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid gender. Must be one of: male, female, neutral"
-        )
+    """
+    Update user profile with the provided fields.
+    All fields are optional - only provided fields will be updated.
+    """
+    logger.info(f"Received update request for user {current_user.id}")
+    
+    # Validate gender if provided
+    if gender is not None:
+        gender = gender.lower()
+        if gender not in ['male', 'female', 'neutral']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid gender. Must be one of: male, female, neutral"
+            )
     
     try:
-        # Update user fields if provided in the request
+        # Update basic fields if provided
         if first_name is not None:
-            current_user.first_name = first_name
+            current_user.first_name = first_name.strip() if first_name else None
+            logger.info(f"Updated first_name to: {current_user.first_name}")
+            
         if last_name is not None:
-            current_user.last_name = last_name
+            current_user.last_name = last_name.strip() if last_name else None
+            logger.info(f"Updated last_name to: {current_user.last_name}")
+            
+        # Update gender if provided
         if gender is not None:
-            print(f"Updating gender from {current_user.gender} to {gender}")  # Debug log
             current_user.gender = gender
+            logger.info(f"Updated gender to: {current_user.gender}")
+            
+        # Update mobile number if provided
         if mobile_number is not None:
-            current_user.mobile_number = mobile_number
-        if address is not None:
-            current_user.address = address
+            cleaned_mobile = mobile_number.strip() if mobile_number and mobile_number.strip() else None
+            current_user.mobile_number = cleaned_mobile
+            logger.info(f"Updated mobile_number to: {cleaned_mobile}")
+            
+        # Handle date_of_birth with proper validation
+        if date_of_birth is not None:
+            try:
+                if date_of_birth and date_of_birth.strip():
+                    # Parse the date string into a datetime object at the start of the day
+                    date_obj = datetime.strptime(date_of_birth.strip(), "%Y-%m-%d")
+                    current_user.date_of_birth = date_obj.date()
+                    logger.info(f"Updated date_of_birth to: {current_user.date_of_birth}")
+                else:
+                    current_user.date_of_birth = None
+                    logger.info("Cleared date_of_birth")
+            except ValueError as e:
+                logger.error(f"Error parsing date_of_birth '{date_of_birth}': {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date format. Please use YYYY-MM-DD"
+                )
+        
+        # Update address and other string fields
+        update_fields = {
+            'address': address,
+            'city': city,
+            'state': state,
+            'country': country,
+            'postal_code': postal_code,
+            'bio': bio
+        }
+        
+        for field, value in update_fields.items():
+            if value is not None:
+                # Convert to string, strip whitespace, and set to None if empty
+                cleaned_value = str(value).strip() if value and str(value).strip() else None
+                setattr(current_user, field, cleaned_value)
+                logger.info(f"Updated {field} to: {cleaned_value}")
+            else:
+                # Explicitly set to None if the field is not provided
+                setattr(current_user, field, None)
+                logger.info(f"Set {field} to None")
 
+        # Update the timestamp
         current_user.updated_at = datetime.utcnow()
         
-        # Commit changes
-        db.commit()
-        
-        # Force a refresh from the database to get updated values
-        db.refresh(current_user)
-        
-        print(f"User after refresh - gender: {current_user.gender}")  # Debug log
-        
-        # Create response using the UserResponse model directly from schemas.user
-        from schemas.user import UserResponse as UserResponseSchema
-        
-        updated_response = UserResponseSchema(
-            id=current_user.id,
-            email=current_user.email,
-            first_name=current_user.first_name,
-            last_name=current_user.last_name,
-            gender=current_user.gender,  # Explicitly include gender
-            mobile_number=current_user.mobile_number,
-            is_active=current_user.is_active
-        )
-        
-        print(f"Response being sent: {updated_response.dict()}")  # Debug log
-        return updated_response
+        try:
+            # Commit changes to the database
+            db.commit()
+            db.refresh(current_user)
+            
+            # Use the helper function to format the response
+            response_data = format_user_response(current_user)
+            
+            return response_data
+            
+        except Exception as db_error:
+            db.rollback()
+            logger.error(f"Database error updating profile: {str(db_error)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An error occurred while updating your profile. Please try again."
+            )
+            
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
         
     except Exception as e:
-        db.rollback()
+        logger.error(f"Unexpected error updating profile: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail="An unexpected error occurred while updating your profile."
         )
 
 @router.post("/reset-password/")
@@ -638,14 +777,21 @@ async def google_auth(
         user = db.query(User).filter(User.email == email).first()
         
         if not user:
-            # Create new user
+            # Create new user with all profile fields
             user = User(
                 email=email,
                 google_id=google_id,
-                first_name=first_name,
-                last_name=last_name,
+                first_name=first_name or '',
+                last_name=last_name or '',
                 mobile_number=mobile_number,
-                gender=gender,
+                gender=(gender or 'neutral').lower(),
+                date_of_birth=None,
+                address=None,
+                city=None,
+                state=None,
+                country=None,
+                postal_code=None,
+                bio=None,
                 profile_picture=picture,
                 is_active=True,
                 created_at=datetime.utcnow(),
@@ -657,14 +803,11 @@ async def google_auth(
         else:
             # Update existing user with new information
             user.google_id = google_id
-            user.first_name = first_name
-            user.last_name = last_name
-            if mobile_number:
-                user.mobile_number = mobile_number
-            if gender:
-                user.gender = gender
-            if picture:
-                user.profile_picture = picture
+            user.first_name = first_name or user.first_name or ''
+            user.last_name = last_name or user.last_name or ''
+            user.mobile_number = mobile_number or user.mobile_number
+            user.gender = (gender or user.gender or 'neutral').lower()
+            user.profile_picture = picture or user.profile_picture
             user.updated_at = datetime.utcnow()
             db.commit()
             db.refresh(user)
@@ -687,16 +830,7 @@ async def google_auth(
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "gender": user.gender,
-                "mobile_number": user.mobile_number,
-                "profile_picture": user.profile_picture,
-                "is_active": user.is_active
-            }
+            "user": format_user_response(user)
         }
 
     except ValueError as e:

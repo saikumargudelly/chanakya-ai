@@ -32,11 +32,12 @@ export const Draggable: React.FC<DraggableProps> = ({
   // Get avatar image based on user context
   const getAvatar = useCallback(() => {
     // Determine avatar based on assistant gender
+    // Show Rukmini for male users, Krishna for female users, and Chanakya for others
     console.log('Draggable: Computing avatar for assistant gender:', config?.assistantGender);
-    if (!config || !config.assistantGender) return '/default-avatar.png';
+    if (!config || !config.assistantGender) return '/avatars/chanakya.svg';
     switch (config.assistantGender) {
-      case 'male': return '/avatars/krish.svg';
-      case 'female': return '/avatars/rukmini.svg';
+      case 'male': return '/avatars/rukmini.svg';
+      case 'female': return '/avatars/krish.svg';
       default: return '/avatars/chanakya.svg';
     }
   }, [config]);

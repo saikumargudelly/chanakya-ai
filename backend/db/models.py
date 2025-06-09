@@ -16,6 +16,13 @@ class User(Base):
     last_name = Column(String, nullable=True)
     mobile_number = Column(String, nullable=True)
     gender = Column(String, default='neutral')
+    date_of_birth = Column(DateTime, nullable=True)
+    address = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)
+    bio = Column(Text, nullable=True)
     profile_picture = Column(String, nullable=True)  # URL to profile picture
     is_active = Column(Boolean, default=True)
     google_id = Column(String, nullable=True)
@@ -37,8 +44,9 @@ class Goal(Base):
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
     name = Column(String)
     target_amount = Column(Float)
-    current_amount = Column(Float)
-    target_date = Column(DateTime)
+    current_amount = Column(Float, default=0.0)
+    deadline_months = Column(Integer)  # Number of months to achieve the goal
+    target_date = Column(DateTime, nullable=True)  # Will be calculated from deadline_months
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
