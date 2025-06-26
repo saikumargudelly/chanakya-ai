@@ -28,6 +28,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   assistantName,
   assistantGender,
 }) => {
+  // Debug log for assistantGender
+  console.log('MessageBubble - assistantGender:', assistantGender);
+
   const getAvatar = () => {
     if (isUser) return null;
     

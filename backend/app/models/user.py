@@ -11,16 +11,23 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
     FINANCIAL_ADVISOR = "financial_advisor"
 
+class AuthProvider(str, enum.Enum):
+    EMAIL = "email"
+    GOOGLE = "google"
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)  # Nullable for OAuth users
+    auth_provider = Column(Enum(AuthProvider), default=AuthProvider.EMAIL, nullable=False)
+    google_id = Column(String(255), unique=True, nullable=True, index=True)  # For Google OAuth
     full_name = Column(String(100), nullable=True)
     
     # Profile information
     phone_number = Column(String(20), nullable=True)
+    mobile_number = Column(String(20), nullable=True)  # Added for Google OAuth
     date_of_birth = Column(DateTime, nullable=True)
     gender = Column(String(20), nullable=True)
     profile_picture = Column(String(255), nullable=True)
@@ -37,13 +44,24 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.USER, nullable=False)
     
     # Relationships
-    transactions = relationship("Transaction", back_populates="owner")
-    goals = relationship("FinancialGoal", back_populates="user")
-    mood_entries = relationship("MoodEntry", back_populates="user")
+    transactions = relationship("Transaction", back_populates="user")
+    chat_history = relationship("ChatHistory", back_populates="user")
+    mood_sessions = relationship("MoodSession", back_populates="user")
+    goals = relationship("Goal", back_populates="user")
+    budgets = relationship("Budget", back_populates="user")
     
     # Timestamps
     last_login = Column(DateTime, nullable=True)
     email_verified_at = Column(DateTime, nullable=True)
+    
+    # New fields
+    first_name = Column(String(50), nullable=True)
+    last_name = Column(String(50), nullable=True)
+    street_address = Column(String(255), nullable=True)
+    city = Column(String(100), nullable=True)
+    state_province = Column(String(100), nullable=True)
+    country = Column(String(100), nullable=True)
+    postal_code = Column(String(20), nullable=True)
     
     def __repr__(self):
         return f"<User {self.email}>"

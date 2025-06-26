@@ -3,7 +3,7 @@ import apiService from '../api/api';
 export const goalService = {
   getGoals: async (userId) => {
     try {
-      const response = await apiService.get('/api/goals/');
+      const response = await apiService.get('/goals/');
       return response.data;
     } catch (error) {
       console.error('Error fetching goals:', error);
@@ -13,7 +13,7 @@ export const goalService = {
 
   addGoal: async (userId, goal) => {
     try {
-      return await apiService.post('/api/goals/', goal);
+      return await apiService.post('/goals/', goal);
     } catch (error) {
       console.error('Error adding goal:', error);
       throw error;
@@ -22,7 +22,7 @@ export const goalService = {
 
   updateGoal: async (userId, goal) => {
     try {
-      return await apiService.put(`/api/goals/${goal.id}`, goal);
+      return await apiService.put(`/goals/${goal.id}/`, goal);
     } catch (error) {
       console.error('Error updating goal:', error);
       throw error;
@@ -31,7 +31,7 @@ export const goalService = {
 
   deleteGoal: async (userId, goalId) => {
     try {
-      return await apiService.delete(`/api/goals/${goalId}`);
+      return await apiService.delete(`/goals/${goalId}/`);
     } catch (error) {
       console.error('Error deleting goal:', error);
       throw error;

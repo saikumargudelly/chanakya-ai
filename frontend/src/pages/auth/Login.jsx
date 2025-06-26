@@ -1,122 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Lock, User, Eye, EyeOff, Key } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
-import { Box, Button, FormControl, FormLabel, Input, InputGroup, InputRightElement, Checkbox, Text, VStack, useToast } from '@chakra-ui/react';
+import { useToast } from '@chakra-ui/react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+
+const loginSchema = yup.object().shape({
+  email: yup.string().email('Enter a valid email').required('Email is required'),
+  password: yup.string().required('Password is required'),
+});
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { login, isAuthenticated } = useAuth();
-  
-  // For backward compatibility with existing code
-  const contextLogin = useCallback(async (credentials) => {
-    try {
-      await login(credentials);
-      return true;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  }, [login]);
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Redirect if already authenticated
+  const { login, isAuthenticated, handleLoginSuccess } = useAuth();
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const isInitialMount = useRef(true);
+
+  const { register, handleSubmit, formState: { errors }, setError: setFormError } = useForm({
+    resolver: yupResolver(loginSchema),
+  });
+
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     if (isAuthenticated) {
       const from = location.state?.from?.pathname || '/dashboard';
-      navigate(from, { replace: true });
+      if (window.location.pathname !== from) {
+        navigate(from, { replace: true });
+      }
     }
   }, [isAuthenticated, navigate, location]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const onSubmit = async (data) => {
     setError('');
     setIsLoading(true);
-
     try {
-      console.log('Attempting login for:', email);
-      
-      // Call the backend login endpoint using the context login
-      const response = await fetch('http://localhost:5001/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          username: email,
-          password: password
-        })
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(responseData.detail || 'Login failed. Please check your credentials.');
-      }
-
-      // Store tokens and user data
-      const { access_token, refresh_token, user: userData } = responseData;
-      
-      // Store tokens in localStorage
-      localStorage.setItem('token', access_token);
-      if (refresh_token) {
-        localStorage.setItem('refresh_token', refresh_token);
-      }
-      
-      if (userData) {
-        // Ensure user data has required fields
-        const userWithRequiredFields = {
-          ...userData,
-          id: userData.id || userData.userId || userData.user_id || 'unknown',
-          email: userData.email || email,
-          name: userData.first_name || userData.name || email.split('@')[0] || 'User',
-          first_name: userData.first_name || userData.name || email.split('@')[0] || 'User',
-          picture: userData.picture || userData.profile_picture || 
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(
-              userData.first_name || userData.name || email.split('@')[0] || 'U'
-            )}&background=random`
-        };
-        
-        // Store user data in localStorage
-        localStorage.setItem('user', JSON.stringify(userWithRequiredFields));
-        
-        // Update auth context
-        contextLogin({
-          ...userWithRequiredFields,
-          access_token,
-          refresh_token
-        });
-        
-        // Show success message
-        toast({
-          title: 'Login successful',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-        
-        // Navigate to dashboard or previous location
-        const from = location.state?.from?.pathname || '/dashboard';
+      const success = await login(data);
+      if (success) {
+        toast({ title: 'Login successful', status: 'success', duration: 3000, isClosable: true });
+        let from = location.state?.from?.pathname;
+        if (!from || from === '/' || from === '/login') {
+          from = '/dashboard';
+        }
         navigate(from, { replace: true });
       } else {
-        throw new Error('Invalid user data received from server');
+        throw new Error('Login failed. Please check your credentials.');
       }
-      
     } catch (err) {
-      console.error('Login error:', err);
       setError(err.message || 'Login failed. Please try again.');
-      
-      // Show error toast
       toast({
         title: 'Login failed',
         description: err.message || 'Please check your credentials and try again.',
@@ -124,6 +64,8 @@ const Login = () => {
         duration: 5000,
         isClosable: true,
       });
+      // Set form error for password field
+      setFormError('password', { type: 'manual', message: err.message || 'Login failed' });
     } finally {
       setIsLoading(false);
     }
@@ -132,137 +74,10 @@ const Login = () => {
   const handleGoogleSuccess = async (credentialResponse) => {
     setError('');
     setIsLoading(true);
-    
     try {
-      console.log('Google OAuth response:', credentialResponse);
-      
-      if (!credentialResponse.credential) {
-        throw new Error('No credential received from Google');
-      }
-      
-      // The backend only expects the credential field
-      const requestBody = {
-        credential: credentialResponse.credential
-      };
-
-      console.log('Sending Google auth request to backend:', requestBody);
-
-      // Send the token to your backend for verification
-      const response = await fetch('http://localhost:5001/auth/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-        credentials: 'include'
-      });
-
-      const responseData = await response.json();
-      console.log('Backend response:', response, responseData);
-
-      if (!response.ok) {
-        // If the response is a 422 (Unprocessable Entity), log the validation errors
-        if (response.status === 422 && responseData.detail) {
-          console.error('Validation error:', responseData.detail);
-          throw new Error(`Validation error: ${responseData.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ')}`);
-        }
-        // For other error statuses, throw with the error message from the backend
-        const errorMessage = responseData.detail || 'Authentication failed';
-        throw new Error(errorMessage);
-      }
-
-      // The backend returns access_token and refresh_token
-      const { access_token, refresh_token, user: userData } = responseData;
-      
-      if (!access_token) {
-        throw new Error('No access token received from server');
-      }
-
-      // Store tokens in localStorage
-      localStorage.setItem('token', access_token);
-      if (refresh_token) {
-        localStorage.setItem('refresh_token', refresh_token);
-      }
-      
-      let userProfile = userData;
-      
-      // If user data is not in the initial response, fetch it from the /me endpoint
-      if (!userProfile) {
-        try {
-          const userResponse = await fetch('http://localhost:5001/auth/me', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${access_token}`,
-              'Accept': 'application/json',
-            },
-          });
-          
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            userProfile = userData;
-          } else {
-            console.warn('Failed to fetch user profile, using minimal user data');
-            // If we can't get the user profile, create a minimal user object
-            // The email will be extracted from the ID token later
-            userProfile = {};
-          }
-        } catch (err) {
-          console.warn('Error fetching user profile:', err);
-          userProfile = {};
-        }
-      }
-
-      // Extract email from the ID token if available
-      let email = userProfile.email;
-      if (!email && credentialResponse.credential) {
-        try {
-          const payload = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
-          email = payload.email || payload.sub;
-        } catch (e) {
-          console.warn('Could not extract email from ID token:', e);
-        }
-      }
-
-      // Ensure user data has required fields
-      const userWithRequiredFields = {
-        ...userProfile,
-        id: userProfile.id || userProfile.userId || userProfile.user_id || 'unknown',
-        email: email || 'unknown@example.com',
-        name: userProfile.first_name || userProfile.name || email?.split('@')[0] || 'User',
-        first_name: userProfile.first_name || userProfile.name || email?.split('@')[0] || 'User',
-        picture: userProfile.picture || userProfile.profile_picture || 
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            userProfile.first_name || userProfile.name || email?.split('@')[0] || 'U'
-          )}&background=random`
-      };
-
-      // Store user data in localStorage
-      localStorage.setItem('user', JSON.stringify(userWithRequiredFields));
-      
-      // Update auth context
-      contextLogin({
-        ...userWithRequiredFields,
-        access_token,
-        refresh_token
-      });
-      
-      // Show success message
-      toast({
-        title: 'Login successful',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      
-      // Navigate to dashboard or previous location
-      const from = location.state?.from?.pathname || '/dashboard';
-      navigate(from, { replace: true });
+      await handleLoginSuccess(credentialResponse);
     } catch (err) {
-      console.error('Google login error:', err);
       setError(err.message || 'Failed to authenticate with Google');
-      
-      // Show error toast
       toast({
         title: 'Google login failed',
         description: err.message || 'Failed to authenticate with Google. Please try again.',
@@ -276,7 +91,6 @@ const Login = () => {
   };
 
   const handleGoogleError = (error) => {
-    console.error('Google authentication error:', error);
     setError('Google authentication failed. Please try again.');
   };
 
@@ -316,7 +130,7 @@ const Login = () => {
 
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Log in</h2>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label htmlFor="email" className="sr-only">Email Address</label>
             <div className="relative">
@@ -325,11 +139,9 @@ const Login = () => {
                 id="email"
                 type="email"
                 placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                {...register('email')}
                 disabled={isLoading}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                className={`w-full pl-10 pr-3 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500`}
                 autoComplete="email"
               />
             </div>
@@ -343,11 +155,9 @@ const Login = () => {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+                {...register('password')}
                 disabled={isLoading}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                className={`w-full pl-10 pr-10 py-2 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500`}
                 autoComplete="current-password"
               />
               <button
@@ -365,19 +175,12 @@ const Login = () => {
               <input
                 id="rememberMe"
                 type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
                 disabled={isLoading}
                 className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
               />
               <label htmlFor="rememberMe" className="ml-2 text-gray-600">Remember me</label>
             </div>
-            <button 
-              onClick={() => alert('Forgot password functionality coming soon!')}
-              className="text-purple-600 hover:text-purple-800 text-sm"
-            >
-              Forgot Password?
-            </button>
+            <button onClick={() => alert('Forgot password functionality coming soon!')} className="text-purple-600 hover:text-purple-800 text-sm">Forgot Password?</button>
           </div>
 
            {error && (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSmile, FiMeh, FiFrown, FiAlertCircle } from 'react-icons/fi';
 
@@ -99,7 +99,7 @@ const QuickMoodPicker = ({ onMoodLogged }) => {
     setIsLoading(true);
     
     try {
-      const res = await axios.post('http://localhost:5001/mood', { mood: mood.value });
+      const res = await api.post('/mood', { mood: mood.value });
       setFeedback(res.data.message);
       if (onMoodLogged) {
         onMoodLogged(mood.value);

@@ -32,3 +32,21 @@ export async function checkDailySessionCount() {
   const res = await API.get('/mood-session/daily-count');
   return res.data;
 }
+
+// Utility: Map overall PERMA score to mood label
+export function getMoodLabelFromScore(score) {
+  if (score >= 1.6) return '😊 Very happy';
+  if (score >= 1.2) return '🙂 Good';
+  if (score >= 0.8) return '😐 Neutral';
+  if (score >= 0.4) return '😕 A bit down';
+  return '😞 Very low';
+}
+
+// Utility: Calculate overall score from perma_scores and return mood label
+export function getMoodFromPermaScores(perma_scores) {
+  const values = Object.values(perma_scores);
+  const overallScore = values.length > 0
+    ? values.reduce((sum, val) => sum + val, 0) / values.length
+    : 0;
+  return getMoodLabelFromScore(overallScore);
+}

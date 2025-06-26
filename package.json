@@ -10,8 +10,11 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.1.1",
     "@tanstack/react-query": "^5.77.0",
     "lodash.throttle": "^4.1.1",
-    "react-nice-avatar": "^1.5.0"
+    "react-hook-form": "^7.58.1",
+    "react-nice-avatar": "^1.5.0",
+    "yup": "^1.6.1"
   }
 }

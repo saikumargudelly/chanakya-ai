@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function UserDropdown({ onProfileClick }) {
-  const { user, logout } = useAuth();
+  const { user, handleLogout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleDropdown = () => setIsOpen(!isOpen);
@@ -34,7 +34,7 @@ export default function UserDropdown({ onProfileClick }) {
             Profile Settings
           </button>
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             Sign out

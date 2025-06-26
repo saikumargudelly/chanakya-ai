@@ -5,7 +5,7 @@ module.exports = function(app) {
   app.use(
     '/api',
     createProxyMiddleware({
-      target: 'http://localhost:5001',
+      target: 'http://localhost:8000',
       changeOrigin: true,
       secure: false,
       onProxyReq: function(proxyReq, req, res) {
@@ -25,7 +25,7 @@ module.exports = function(app) {
   app.use(
     '/chat',
     createProxyMiddleware({
-      target: 'http://localhost:5001',
+      target: 'http://localhost:8000',
       changeOrigin: true,
       secure: false,
       pathRewrite: {

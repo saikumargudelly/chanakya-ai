@@ -1,5 +1,4 @@
-import api from '../api';
-const API = api;
+import API from '../api/api';
 
 // Save a mood session to backend
 // Helper function to validate PERMA scores
@@ -44,9 +43,9 @@ export async function testBackendConnection() {
   }
 }
 
-export async function saveMoodSession({ user_id, perma_scores, answers, summary, timestamp }) {
+export async function saveMoodSession({ user_id, mood, perma_scores, answers, summary, timestamp }) {
   try {
-    console.log('Starting saveMoodSession with:', { user_id, perma_scores, answers, summary, timestamp });
+    console.log('Starting saveMoodSession with:', { user_id, mood, perma_scores, answers, summary, timestamp });
     
     const token = localStorage.getItem('token');
     if (!token) {
@@ -67,8 +66,13 @@ export async function saveMoodSession({ user_id, perma_scores, answers, summary,
       throw new Error('Answers array is required');
     }
 
+    if (!mood || typeof mood !== 'string') {
+      throw new Error('Mood is required and must be a string');
+    }
+
     const requestData = {
       user_id: userId,
+      mood,
       perma_scores: validatedScores,
       answers: answers.map(a => ({
         question: String(a.question || ''),

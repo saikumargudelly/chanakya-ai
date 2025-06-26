@@ -1,10 +1,10 @@
-import api from '../api';
+import api from '../api/api';
 
 const MOOD_API = {
   // Log a new mood entry
   logMood: async (moodData) => {
     try {
-      const response = await api.post('/api/mood/log', moodData);
+      const response = await api.post('/mood', moodData);
       return response.data;
     } catch (error) {
       console.error('Error logging mood:', error);
@@ -15,7 +15,7 @@ const MOOD_API = {
   // Get mood history
   getMoodHistory: async (params = {}) => {
     try {
-      const response = await api.get('/api/mood/history', { params });
+      const response = await api.get('/mood/history', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching mood history:', error);
@@ -26,7 +26,7 @@ const MOOD_API = {
   // Get mood statistics
   getMoodStats: async (params = {}) => {
     try {
-      const response = await api.get('/api/mood/stats', { params });
+      const response = await api.get('/mood/stats', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching mood statistics:', error);
@@ -37,7 +37,7 @@ const MOOD_API = {
   // Get current mood
   getCurrentMood: async () => {
     try {
-      const response = await api.get('/api/mood/current');
+      const response = await api.get('/mood/current');
       return response.data;
     } catch (error) {
       console.error('Error fetching current mood:', error);
@@ -48,7 +48,7 @@ const MOOD_API = {
   // Update a mood entry
   updateMoodEntry: async (entryId, moodData) => {
     try {
-      const response = await api.put(`/api/mood/entries/${entryId}`, moodData);
+      const response = await api.put(`/mood/entries/${entryId}`, moodData);
       return response.data;
     } catch (error) {
       console.error('Error updating mood entry:', error);
@@ -59,7 +59,7 @@ const MOOD_API = {
   // Delete a mood entry
   deleteMoodEntry: async (entryId) => {
     try {
-      const response = await api.delete(`/api/mood/entries/${entryId}`);
+      const response = await api.delete(`/mood/entries/${entryId}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting mood entry:', error);

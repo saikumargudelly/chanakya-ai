@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/api';
 import NotificationToast from './NotificationToast';
-import { useAuth } from './AuthContext';
+import { useAuth } from '../context/AuthContext';
 import FinancialPosition from './FinancialPosition';
 
 const BudgetForm = () => {
@@ -100,7 +100,7 @@ const BudgetForm = () => {
     }
     // Rule 3: 3 consecutive weeks with 0 surplus (simulate with 0 savings for now)
     if (savings === 0) {
-      feedbacks.push('No surplus left — let’s review your spending!');
+      feedbacks.push('No surplus left — let's review your spending!');
     }
     return feedbacks;
   }

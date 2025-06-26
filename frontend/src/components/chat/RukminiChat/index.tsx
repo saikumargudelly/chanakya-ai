@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ChatProvider, useChat } from './context';
 import ChatDrawer from './ChatDrawer';
 import Draggable from './Draggable';
-import { AuthProvider, useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 
 // Dark mode hook
 const useDarkMode = () => {
@@ -96,17 +96,18 @@ const RukminiChat: React.FC<RukminiChatProps> = ({
     };
   }, []);
   
+  const { user } = useAuth();
+  
   // Only render the ChatProvider once
   return React.useMemo(() => (
-    <AuthProvider>
       <ChatProvider 
         key="chat-provider"
         userName={userName}
+        userGender={user?.gender}
       >
         <ChatContent />
       </ChatProvider>
-    </AuthProvider>
-  ), [userName]);
+  ), [userName, user?.gender]);
 };
 
 export { RukminiChat };

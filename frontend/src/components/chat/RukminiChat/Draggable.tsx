@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { useChat } from './context';
+import { getAvatarByGender } from '../../../constants/avatars';
 
 // Create type-safe motion component using type assertion
 const MotionDiv = motion.div as React.ComponentType<any>;
@@ -31,16 +32,11 @@ export const Draggable: React.FC<DraggableProps> = ({
 
   // Get avatar image based on user context
   const getAvatar = useCallback(() => {
-    // Determine avatar based on assistant gender
-    // Show Rukmini for male users, Krishna for female users, and Chanakya for others
-    console.log('Draggable: Computing avatar for assistant gender:', config?.assistantGender);
-    if (!config || !config.assistantGender) return '/avatars/chanakya.svg';
-    switch (config.assistantGender) {
-      case 'male': return '/avatars/rukmini.svg';
-      case 'female': return '/avatars/krish.svg';
-      default: return '/avatars/chanakya.svg';
-    }
-  }, [config]);
+    // Use user's gender to get the assistant avatar
+    const gender = userContext?.gender || 'other';
+    const avatar = getAvatarByGender(gender);
+    return avatar.src;
+  }, [userContext]);
 
   // Get mood border color
   const getBorderColor = useCallback(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../api/axiosConfig';
 
 export default function ResetPasswordModal({ isOpen, onClose }) {
   const [email, setEmail] = useState('');
@@ -36,8 +36,8 @@ export default function ResetPasswordModal({ isOpen, onClose }) {
     setStatus({ type: '', message: '' });
 
     try {
-      // Replace with your actual API endpoint
-      await axios.post('http://localhost:5001/auth/reset_password', {
+      // Call the reset password API endpoint
+      await api.post('/api/v1/auth/reset-password', {
         email,
         new_password: newPassword,
       });

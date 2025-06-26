@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import API from '../../services/api';
+import api from '../../services/api/api';
 import { format, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -144,7 +144,7 @@ const tabs = [
 ];
 
 const Profile = ({ onClose }) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, setUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
@@ -164,12 +164,12 @@ const Profile = ({ onClose }) => {
     first_name: '',
     last_name: '',
     email: '',
-    mobile_number: '',
+    phone_number: '',
     gender: '',
     date_of_birth: '',
-    address: '',
+    street_address: '',
     city: '',
-    state: '',
+    state_province: '',
     country: '',
     postal_code: '',
     bio: '',
@@ -246,8 +246,8 @@ const Profile = ({ onClose }) => {
       newErrors.last_name = 'Last name is required';
     }
     
-    if (form.mobile_number && !/^\+?[0-9\s-]{10,}$/.test(form.mobile_number)) {
-      newErrors.mobile_number = 'Please enter a valid phone number';
+    if (form.phone_number && !/^\+?[0-9\s-]{10,}$/.test(form.phone_number)) {
+      newErrors.phone_number = 'Please enter a valid phone number';
     }
     
     setErrors(newErrors);
@@ -257,66 +257,38 @@ const Profile = ({ onClose }) => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setSaving(true);
-    
+
     try {
-      const formData = new FormData();
-      
-      // Explicitly append all fields to ensure they're included
-      if (form.first_name) formData.append('first_name', form.first_name);
-      if (form.last_name) formData.append('last_name', form.last_name);
-      if (form.email) formData.append('email', form.email);
-      if (form.mobile_number) formData.append('mobile_number', form.mobile_number);
-      if (form.gender) formData.append('gender', form.gender);
-      if (form.date_of_birth) formData.append('date_of_birth', form.date_of_birth);
-      if (form.address) formData.append('address', form.address);
-      if (form.city) formData.append('city', form.city);
-      if (form.state) formData.append('state', form.state);
-      if (form.country) formData.append('country', form.country);
-      if (form.postal_code) formData.append('postal_code', form.postal_code);
-      if (form.bio) formData.append('bio', form.bio);
-      if (form.profile_picture) {
-        formData.append('profile_picture', form.profile_picture);
-      }
-      
-      console.log('Submitting form with gender:', form.gender); // Debug log
-      
-      const response = await API.put('/auth/users/me', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      // Log the current state before updating
-      console.log('Before update - Form gender:', form.gender);
-      console.log('Before update - User data from server:', response.data);
-      console.log('Before update - Current user context:', user);
-      
-      // Ensure we have the complete user data including gender
-      const updatedUser = {
-        ...user,  // Current user data
-        ...response.data,  // Updated fields from the server
-        gender: form.gender  // Explicitly include the gender from the form
+      // Send null for empty fields to match backend expectations
+      const payload = {
+        first_name: form.first_name || null,
+        last_name: form.last_name || null,
+        phone_number: form.phone_number || null,
+        gender: form.gender || null,
+        date_of_birth: form.date_of_birth ? form.date_of_birth : null,
+        bio: form.bio || null,
+        street_address: form.street_address || null,
+        city: form.city || null,
+        state_province: form.state_province || null,
+        country: form.country || null,
+        profile_picture: form.profile_picture || null,
       };
-      
-      console.log('Updating user with:', {
-        ...updatedUser,
-        // Don't log the entire user object to avoid sensitive data
-        hasGender: !!updatedUser.gender,
-        genderValue: updatedUser.gender
-      });
-      updateUser(updatedUser);
+
+      const response = await api.put('/auth/me', payload);
+
+      // Update user in localStorage and context
+      const updatedUser = { ...user, ...response.data };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+
       setIsEditing(false);
-      
-      // Show success message
       alert('Profile updated successfully!');
-      
-      // Refresh profile data to ensure consistency
       fetchProfile();
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -330,30 +302,26 @@ const Profile = ({ onClose }) => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      console.log('Fetching user profile...');
-      // Using the correct endpoint with /auth prefix
-      const response = await API.get('/auth/users/me');
+      const response = await api.get('/auth/me');
       const userData = response.data;
-      
-      console.log('Fetched user data:', {
-        ...userData,
-        // Don't log the entire user object to avoid sensitive data
-        hasGender: !!userData.gender,
-        genderValue: userData.gender
-      });
-      
-      // Format date for date input
-      if (userData.date_of_birth) {
-        userData.date_of_birth = format(new Date(userData.date_of_birth), 'yyyy-MM-dd');
-      }
-      
-      setForm(prev => {
-        console.log('Updating form with user data. Previous gender:', prev.gender, 'New gender:', userData.gender);
-        return {
-          ...prev,
-          ...userData
-        };
-      });
+
+      // Map backend fields to frontend state
+      setForm(prev => ({
+        ...prev,
+        first_name: userData.first_name || '',
+        last_name: userData.last_name || '',
+        email: userData.email || '',
+        phone_number: userData.mobile_number || userData.phone_number || '',
+        gender: userData.gender || '',
+        date_of_birth: userData.date_of_birth ? format(new Date(userData.date_of_birth), 'yyyy-MM-dd') : '',
+        bio: userData.bio || '',
+        profile_picture: userData.profile_picture || '',
+        street_address: userData.street_address || '',
+        city: userData.city || '',
+        state_province: userData.state_province || '',
+        country: userData.country || '',
+        postal_code: userData.postal_code || '',
+      }));
       setPreviewImage(userData.profile_picture || '');
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -536,12 +504,12 @@ const Profile = ({ onClose }) => {
                           <FormInput
                             icon={FiPhone}
                             label="Mobile Number"
-                            name="mobile_number"
+                            name="phone_number"
                             type="tel"
-                            value={form.mobile_number}
+                            value={form.phone_number}
                             onChange={handleChange}
                             disabled={!isEditing || saving}
-                            error={errors.mobile_number}
+                            error={errors.phone_number}
                             labelWidth="w-1/3"
                             inputWidth="w-2/3"
                           />
@@ -654,11 +622,11 @@ const Profile = ({ onClose }) => {
                           <FormInput
                             icon={FiMapPin}
                             label="Street Address"
-                            name="address"
-                            value={form.address}
+                            name="street_address"
+                            value={form.street_address}
                             onChange={handleChange}
                             disabled={!isEditing || saving}
-                            error={errors.address}
+                            error={errors.street_address}
                             labelWidth="w-1/3"
                             inputWidth="w-2/3"
                           />
@@ -677,11 +645,11 @@ const Profile = ({ onClose }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <FormInput
                             label="State/Province"
-                            name="state"
-                            value={form.state}
+                            name="state_province"
+                            value={form.state_province}
                             onChange={handleChange}
                             disabled={!isEditing || saving}
-                            error={errors.state}
+                            error={errors.state_province}
                             labelWidth="w-1/3"
                             inputWidth="w-2/3"
                           />

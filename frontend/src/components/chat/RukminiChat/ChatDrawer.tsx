@@ -5,6 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { MoodType, Message, QuickReply, ChatConfig, UserContext } from '../../../types/chat';
 import { MessageBubble } from './MessageBubble';
 import { QuickReplyBar } from './QuickReplyBar';
+import { getAvatarByGender } from '../../../constants/avatars';
 
 // Create a type-safe motion component using type assertion
 const MotionDiv = motion.div as React.ComponentType<any>;
@@ -71,12 +72,13 @@ interface TypingIndicatorProps {
 }
 
 const TypingIndicator = React.memo(({ gender }: TypingIndicatorProps): React.ReactElement => {
+  const avatar = getAvatarByGender(gender);
   return (
     <div className="flex items-center space-x-2 p-3">
       <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
         <img 
-          src={gender === 'male' ? '/avatars/krish.svg' : gender === 'female' ? '/avatars/rukmini.svg' : '/avatars/chanakya.svg'} 
-          alt={gender === 'male' ? 'Krish' : gender === 'female' ? 'Rukmini' : 'Chanakya'}
+          src={avatar.src}
+          alt={avatar.alt}
           className="w-full h-full object-cover"
         />
       </div>
@@ -103,12 +105,20 @@ interface AssistantAvatarProps {
 
 const AssistantAvatar = React.memo(({ gender, size = 'md' }: AssistantAvatarProps): React.ReactElement => {
   const sizeClasses = size === 'md' ? 'w-10 h-10' : 'w-8 h-8';
+  const avatar = getAvatarByGender(gender);
+  
   return (
     <div className={`${sizeClasses} rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow-md overflow-hidden`}>
       <img 
-        src={gender === 'male' ? '/avatars/rukmini.svg' : gender === 'female' ? '/avatars/krish.svg' : '/avatars/chanakya.svg'} 
-        alt={gender === 'male' ? 'Rukmini' : gender === 'female' ? 'Krish' : 'Chanakya'}
+        src={avatar.src}
+        alt={avatar.alt}
         className="w-full h-full object-cover"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          if (avatar.fallback && target.src !== avatar.fallback) {
+            target.src = avatar.fallback;
+          }
+        }}
       />
     </div>
   );
@@ -148,7 +158,8 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
     sendMessage,
   } = useChat();
   
-  const { assistantName, assistantGender } = config;
+  const { assistantName } = config;
+  const userGender = userContext?.gender || 'other';
   
   const { user } = useAuth();
 
@@ -188,10 +199,10 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
         message={message}
         isUser={message.sender === 'user'}
         assistantName={assistantName}
-        assistantGender={assistantGender}
+        assistantGender={userGender}
       />
     ))
-  , [messageList, assistantName, assistantGender]);
+  , [messageList, assistantName, userGender]);
 
   // Auto-scroll to bottom when messages change or when typing
   useEffect(() => {
@@ -297,7 +308,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
           onClick={toggleMinimize}
         >
           <div className="flex items-center space-x-3">
-            <AssistantAvatar gender={assistantGender} />
+            <AssistantAvatar gender={userGender} />
             <div>
               <h3 className="font-medium text-white">{assistantName}</h3>
               <p className="text-xs text-white/80">
@@ -345,7 +356,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = (): React.ReactElement => {
                 className="flex-1 overflow-y-auto p-4 space-y-4"
               >
                 {messageBubbles}
-                {isTyping && <TypingIndicator gender={assistantGender} />}
+                {isTyping && <TypingIndicator gender={userGender} />}
                 <div ref={messagesEndRef} />
               </div>
 

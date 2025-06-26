@@ -1,24 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from './context/AuthContext';  
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './context/AuthContext';
 import { GoalProvider } from './context/GoalContext';
 import RukminiChat from './components/chat/RukminiChat';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Layout Components
 import Sidebar from './components/layout/Sidebar';
 import TopNav from './components/layout/TopNav';
 
-// Pages
-import Dashboard from "./pages/dashboard/Dashboard";
-import BudgetAnalytics from './pages/BudgetAnalytics/BudgetAnalytics';
-import FinancialPosition from './pages/FinancialPosition/FinancialPosition';
-import GoalTracker from './pages/GoalTracker/GoalTracker';
-import MoodTracker from './pages/MoodTracker/MoodTracker';
-import Login from './pages/auth/Login';
-import Signup from './pages/auth/Signup';
-import Home from './pages/Home';
+// Lazy load pages
+const Dashboard = React.lazy(() => import("./pages/dashboard/Dashboard"));
+const BudgetAnalytics = React.lazy(() => import('./pages/BudgetAnalytics/BudgetAnalytics'));
+const FinancialPosition = React.lazy(() => import('./pages/FinancialPosition/FinancialPosition'));
+const GoalTracker = React.lazy(() => import('./pages/GoalTracker/GoalTracker'));
+const MoodTracker = React.lazy(() => import('./pages/MoodTracker/MoodTracker'));
+const Login = React.lazy(() => import('./pages/auth/Login'));
+const Signup = React.lazy(() => import('./pages/auth/Signup'));
+const Home = React.lazy(() => import('./pages/Home'));
 
 // Create a query client with default options
 const queryClient = new QueryClient({
@@ -30,6 +31,22 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Add error boundary component at the top level
+const ErrorFallback = ({ error, resetErrorBoundary }) => (
+  <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md text-center">
+      <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
+      <pre className="text-sm text-gray-600 dark:text-gray-400 mb-4">{error.message}</pre>
+      <button
+        onClick={resetErrorBoundary}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+      >
+        Try again
+      </button>
+    </div>
+  </div>
+);
 
 // Modern loading spinner component
 const LoadingSpinner = () => (
@@ -43,56 +60,19 @@ const LoadingSpinner = () => (
 
 // A wrapper for protected routes
 const ProtectedRoute = ({ children }) => {
-  const { user, isAuthenticated, isLoading, refreshToken } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-  const [initialCheckDone, setInitialCheckDone] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const hasToken = !!localStorage.getItem('token');
 
-  // Handle initial auth check and token refresh
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      // If we're already authenticated, no need to check
-      if (isAuthenticated) {
-        setInitialCheckDone(true);
-        return;
-      }
-
-      // If we have a token but not authenticated, try to refresh it
-      if (hasToken && !isAuthenticated && !isRefreshing) {
-        console.log('[ProtectedRoute] Token found but not authenticated, attempting refresh...');
-        setIsRefreshing(true);
-        try {
-          const refreshSuccess = await refreshToken();
-          if (!refreshSuccess) {
-            console.log('[ProtectedRoute] Token refresh failed, redirecting to login');
-            // Clear any invalid tokens
-            localStorage.removeItem('token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('user');
-          }
-        } catch (error) {
-          console.error('[ProtectedRoute] Error during token refresh:', error);
-        } finally {
-          setIsRefreshing(false);
-          setInitialCheckDone(true);
-        }
-      } else {
-        // No token or already checked
-        setInitialCheckDone(true);
-      }
-    };
-
-    checkAuthStatus();
-  }, [isAuthenticated, hasToken, refreshToken, isRefreshing]);
+  console.log('[ProtectedRoute] user:', user, 'isAuthenticated:', isAuthenticated, 'hasToken:', hasToken);
 
   // Show loading spinner while checking auth state
-  if (isLoading || !initialCheckDone || isRefreshing) {
+  if (isLoading) {
     return <LoadingSpinner />;
   }
 
-  // If not authenticated, redirect to login
-  if (!isAuthenticated || !user) {
+  // If not authenticated or no token, redirect to login
+  if (!isAuthenticated || !hasToken) {
     console.log('[ProtectedRoute] Not authenticated, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -111,13 +91,16 @@ const ProtectedRoute = ({ children }) => {
 const PublicRoute = ({ children }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/';
+  let from = location.state?.from?.pathname;
 
   if (isLoading) {
     return <LoadingSpinner />;
   }
 
   if (user) {
+    if (!from || from === '/' || from === '/login') {
+      from = '/dashboard';
+    }
     return <Navigate to={from} replace />;
   }
 
@@ -181,81 +164,170 @@ const AuthenticatedLayout = ({ children }) => {
 
 // Main App content with layout
 function AppContent() {
-  const { user, isLoading } = useAuth();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
+  // Prefetch data for the next route
+  useEffect(() => {
+    // Add route-specific prefetching logic here
+    const prefetchRouteData = async () => {
+      try {
+        if (location.pathname === '/dashboard') {
+          await queryClient.prefetchQuery({
+            queryKey: ['dashboardData'],
+            queryFn: () => fetchDashboardData()
+          });
+        }
+      } catch (error) {
+        console.error('Error prefetching dashboard data:', error);
+      }
+    };
+    
+    prefetchRouteData();
+  }, [location, queryClient]);
+
+  const prefetchRouteData = useCallback(async () => {
+    if (user) {
+      try {
+        // Update query keys to use arrays
+        await queryClient.prefetchQuery({
+          queryKey: ['userData'],
+          queryFn: () => fetchUserData(),
+          staleTime: 5 * 60 * 1000 // 5 minutes
+        });
+        
+        await queryClient.prefetchQuery({
+          queryKey: ['goals'],
+          queryFn: () => fetchGoals(),
+          staleTime: 2 * 60 * 1000 // 2 minutes
+        });
+      } catch (error) {
+        console.error('Error prefetching user data:', error);
+      }
+    }
+  }, [user, queryClient]);
 
   return (
     <Routes location={location} key={location.pathname}>
-      {/* Public routes */}
-      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
-      <Route path="/home" element={<Home />} />
+      <Route path="/" element={<Home />} />
+      <Route
+        path="/dashboard/*"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<LoadingSpinner />}>
+              <ErrorBoundary FallbackComponent={ErrorFallback}>
+                <Dashboard />
+              </ErrorBoundary>
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route 
+        path="/budget-analytics" 
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<LoadingSpinner />}>
+              <ErrorBoundary FallbackComponent={ErrorFallback}>
+                <BudgetAnalytics />
+              </ErrorBoundary>
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/financial-position" 
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<LoadingSpinner />}>
+              <ErrorBoundary FallbackComponent={ErrorFallback}>
+                <FinancialPosition />
+              </ErrorBoundary>
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/mood" 
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<LoadingSpinner />}>
+              <ErrorBoundary FallbackComponent={ErrorFallback}>
+                <MoodTracker />
+              </ErrorBoundary>
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/goal-tracker" 
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<LoadingSpinner />}>
+              <ErrorBoundary FallbackComponent={ErrorFallback}>
+                <GoalTracker />
+              </ErrorBoundary>
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
       <Route path="/login" element={
         <PublicRoute>
-          <Login />
+          <Suspense fallback={<LoadingSpinner />}>
+            <Login />
+          </Suspense>
         </PublicRoute>
       } />
       <Route path="/signup" element={
         <PublicRoute>
-          <Signup />
+          <Suspense fallback={<LoadingSpinner />}>
+            <Signup />
+          </Suspense>
         </PublicRoute>
       } />
 
-      {/* Protected routes */}
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <AuthenticatedLayout>
-            <Dashboard />
-          </AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/budget-analytics" element={
-        <ProtectedRoute>
-          <AuthenticatedLayout>
-            <BudgetAnalytics />
-          </AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/financial-position" element={
-        <ProtectedRoute>
-          <AuthenticatedLayout>
-            <FinancialPosition />
-          </AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/mood" element={
-        <ProtectedRoute>
-          <AuthenticatedLayout>
-            <MoodTracker />
-          </AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/goal-tracker" element={
-        <ProtectedRoute>
-          <AuthenticatedLayout>
-            <GoalTracker />
-          </AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      {/* 404 fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* 404 fallback - redirect to home for unknown routes */}
+      <Route 
+        path="*" 
+        element={
+          <Navigate to="/" replace />
+        } 
+      />
     </Routes>
   );
 }
+
+// Add memoization for stable components
+const MemoizedSidebar = React.memo(Sidebar);
+const MemoizedTopNav = React.memo(TopNav);
+
+// Mock functions for prefetching (replace with actual API calls)
+const fetchDashboardData = async () => {
+  // TODO: Implement actual dashboard data fetching
+  return {};
+};
+
+const fetchUserData = async () => {
+  // TODO: Implement actual user data fetching
+  return {};
+};
+
+const fetchGoals = async () => {
+  // TODO: Implement actual goals fetching
+  return [];
+};
 
 // Main App component with providers
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <GoalProvider>
-          <AppContent />
-        </GoalProvider>
-      </AuthProvider>
+      <GoalProvider>
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <Suspense fallback={<LoadingSpinner />}>
+            <AppContent />
+          </Suspense>
+        </ErrorBoundary>
+      </GoalProvider>
     </QueryClientProvider>
   );
 }

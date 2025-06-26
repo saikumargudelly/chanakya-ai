@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, Text, Boolean
 from sqlalchemy.orm import relationship
 import enum
 
@@ -15,7 +15,7 @@ class TransactionCategory(str, enum.Enum):
     # Income categories
     SALARY = "salary"
     FREELANCE = "freelance"
-    INVESTMENT = "investment_income"
+    INVESTMENT_INCOME = "investment_income"
     GIFT = "gift"
     OTHER_INCOME = "other_income"
     
@@ -32,7 +32,7 @@ class TransactionCategory(str, enum.Enum):
     TRAVEL = "travel"
     SUBSCRIPTIONS = "subscriptions"
     SAVINGS = "savings"
-    INVESTMENT = "investment"
+    INVESTMENT_EXPENSE = "investment"
     OTHER_EXPENSE = "other_expense"
 
 class TransactionStatus(str, enum.Enum):

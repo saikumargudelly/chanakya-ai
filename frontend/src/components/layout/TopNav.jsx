@@ -4,13 +4,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Profile from '../common/Profile';
 
-const TopNav = ({ toggleSidebar }) => {
-  const { user, logout } = useAuth();
+const TopNav = ({ toggleSidebar, setShowProfile }) => {
+  const { user, handleLogout } = useAuth();
   const navigate = useNavigate();
-  const [showProfile, setShowProfile] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const onLogout = () => {
+    handleLogout();
     navigate('/');
   };
 
@@ -58,14 +57,13 @@ const TopNav = ({ toggleSidebar }) => {
           {user && (
             <button
               className="ml-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm hover:shadow-md transition-all duration-200"
-              onClick={handleLogout}
+              onClick={onLogout}
             >
               Logout
             </button>
           )}
         </div>
       </div>
-      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
     </header>
   );
 };

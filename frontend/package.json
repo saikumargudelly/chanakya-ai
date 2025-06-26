@@ -2,12 +2,13 @@
   "name": "chanakya-frontend",
   "version": "1.0.0",
   "private": true,
-  "proxy": "http://localhost:5001",
+  "proxy": "http://localhost:8000",
   "dependencies": {
     "@chakra-ui/icons": "^2.1.0",
     "@chakra-ui/react": "^2.8.2",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
+    "@hookform/resolvers": "^5.1.1",
     "@nivo/core": "^0.88.0",
     "@nivo/line": "^0.88.0",
     "@nivo/pie": "^0.88.0",
@@ -43,17 +44,20 @@
     "react-router-dom": "^6.20.1",
     "react-scripts": "5.0.1",
     "three": "^0.161.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "yup": "^1.6.1"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "react-scripts build && node scripts/optimize-build.js",
+    "build:analyze": "source-map-explorer 'build/static/js/*.js'",
     "test": "react-scripts test",
     "test:coverage": "npm test -- --coverage --watchAll=false",
     "test:update": "npm test -- --updateSnapshot",
     "eject": "react-scripts eject",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\""
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+    "preinstall": "npx only-allow npm"
   },
   "eslintConfig": {
     "extends": [
@@ -96,6 +100,7 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-testing-library": "^6.2.0",
+    "glob": "^10.4.5",
     "http-proxy-middleware": "^3.0.5",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^29.7.0",
@@ -103,6 +108,7 @@
     "msw": "^2.2.1",
     "prettier": "^3.0.0",
     "react-test-renderer": "^18.2.0",
+    "source-map-explorer": "^2.5.3",
     "typescript": "^4.9.5",
     "web-vitals": "^3.5.1",
     "webpack-dev-server": "^4.15.1"

@@ -11,6 +11,7 @@ import {
   User 
 } from '../../../../types/chat';
 import { useAuth } from '../../../../context/AuthContext';
+import api from '../../../../services/api/api';
 
 // Extend the User type to include auth-specific properties
 interface AuthUser extends User {
@@ -25,18 +26,11 @@ interface ApiService {
   post<T = ChatApiResponse>(url: string, data: any): Promise<{ data: T }>;
 }
 
-// Mock API service - replace with actual API import
-const api: ApiService = {
-  async post<T = ChatApiResponse>(): Promise<{ data: T }> {
-    // This is a mock implementation
-    const mockResponse: ChatApiResponse = { 
-      response: 'Welcome to Chanakya AI! How can I help you today?',
-      mood: 'neutral',
-      quickReplies: []
-    };
-    return {
-      data: mockResponse as unknown as T
-    };
+// API service using axios
+const apiService: ApiService = {
+  async post<T = ChatApiResponse>(url: string, data: any): Promise<{ data: T }> {
+    const response = await api.post(url, data);
+    return { data: response.data };
   }
 };
 
@@ -52,10 +46,12 @@ const getAssistantConfig = (userGender: Gender | null | undefined): AssistantCon
   if (!userGender || userGender === 'other') {
     return { gender: 'other', name: 'Chanakya', model: 'chanakya' };
   }
-  if (userGender === 'male') {
-    return { gender: 'female', name: 'Rukmini', model: 'rukhmini' };
+  if (userGender === 'female') {
+    // Female users get Krishna (male assistant)
+    return { gender: 'male', name: 'Krishna', model: 'krishna' };
   }
-  return { gender: 'male', name: 'Krishna', model: 'krishna' };
+  // Male users get Rukmini (female assistant)
+  return { gender: 'female', name: 'Rukmini', model: 'rukmini' };
 };
 
 // Default values
@@ -88,13 +84,14 @@ const defaultQuickReplies: QuickReply[] = [
 interface ChatProviderProps {
   children: ReactNode;
   userName?: string;
+  userGender?: 'male' | 'female' | 'other';
 }
 
 // Create context with undefined default value
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 // Main Provider Component
-const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }) => {
+const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName, userGender: userGenderProp }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [mood, setMood] = useState<MoodType>('neutral');
@@ -102,6 +99,9 @@ const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }) => {
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(defaultQuickReplies);
   
   const { user } = useAuth() as { user: AuthUser | null };
+  
+  // Debug log for user.gender
+  console.log('ChatProvider - user.gender:', user?.gender);
   
   // Add initial greeting message when chat opens and messages are empty
   useEffect(() => {
@@ -121,16 +121,48 @@ const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }) => {
     }
   }, [isOpen, messages.length, user?.name]);
   
+  // Log the current user data whenever it changes
+  useEffect(() => {
+    console.log('ChatContext - Current user data:', {
+      user: {
+        ...user,
+        // Don't log sensitive data
+        email: user?.email ? '[REDACTED]' : undefined,
+      },
+      userGenderProp,
+      timestamp: new Date().toISOString()
+    });
+  }, [user, userGenderProp]);
+
   // Determine assistant configuration based on user gender
   const { assistantGender, assistantName, model } = useMemo(() => {
-    const userGender = user?.gender || 'other';
+    // Use the prop if available, otherwise fall back to the user's gender from auth
+    const userGender = userGenderProp || user?.gender || 'other';
+    
+    console.log('Determining assistant config with gender:', { 
+      userGender, 
+      userGenderProp, 
+      userGenderFromAuth: user?.gender,
+      source: userGenderProp ? 'prop' : user?.gender ? 'auth' : 'default',
+      timestamp: new Date().toISOString()
+    });
+    
     const config = getAssistantConfig(userGender);
+    
+    console.log('Assistant config determined:', {
+      userGender,
+      assistantName: config.name,
+      assistantGender: config.gender,
+      model: config.model,
+      timestamp: new Date().toISOString()
+    });
+    
     return { 
       assistantGender: config.gender, 
       assistantName: config.name,
       model: config.model
     };
-  }, [user?.gender]);
+  }, [user?.gender, userGenderProp]);
 
   // Chat configuration
   const config: ChatConfig = useMemo(() => ({
@@ -173,39 +205,105 @@ const ChatProvider: React.FC<ChatProviderProps> = ({ children, userName }) => {
     setIsTyping(true);
     
     try {
-      // Prepare API request
-      const requestData = {
+      // Prepare API request with proper gender handling
+      const userGender = user?.gender?.toLowerCase() || 'other';
+      const validGenders = ['male', 'female', 'other'];
+      const sanitizedGender = validGenders.includes(userGender) ? userGender : 'other';
+      
+      console.log('User gender for API request:', {
+        rawGender: user?.gender,
+        sanitizedGender,
         userId: user?.id,
+        hasUser: !!user
+      });
+      
+      const requestData = {
+        user_id: user?.id || 'anonymous',
         message: content,
         mood,
-        gender: user?.gender || 'other',
-        model,
+        gender: sanitizedGender,
+        model: model || 'chanakya',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       
-      // Call chat API
-      const response = await api.post<ChatApiResponse>('/api/chat', requestData);
-
-      // Create assistant message from response
-      const assistantMessage: Message = {
-        id: Date.now().toString(),
-        text: response.data.response || 'I apologize, but I encountered an issue processing your request.',
-        sender: 'assistant',
-        timestamp: new Date(),
-        mood: response.data.mood || 'neutral',
-      };
-
-      // Update state with assistant's response
-      setMessages(prev => [...prev, assistantMessage]);
+      // Enhanced API call with detailed logging
+      let attempts = 0;
+      const maxAttempts = 3;
+      let response;
+      let lastError: Error | null = null;
       
-      // Update quick replies if provided
-      if (response.data.quickReplies) {
-        setQuickReplies(response.data.quickReplies);
-      }
+      // Log the request data
+      console.log('Sending request to /chat with data:', JSON.stringify(requestData, null, 2));
       
-      // Update mood if changed
-      if (response.data.mood) {
-        setMood(response.data.mood);
+      while (attempts < maxAttempts) {
+        try {
+          const url = '/chat';
+          console.log(`Attempt ${attempts + 1}/${maxAttempts} - Calling ${url}`);
+          const startTime = Date.now();
+          response = await apiService.post(url, requestData);
+          const responseTime = Date.now() - startTime;
+          console.log(`API call completed in ${responseTime}ms with status:`, response.status);
+          // Use response.data directly
+          const responseData = response.data;
+          console.log('API response data:', responseData);
+          if (!responseData) {
+            console.error('Empty response data from server');
+            throw new Error('Empty response data from server');
+          }
+          // Handle different response formats
+          let responseText: string;
+          if (typeof responseData === 'string') {
+            responseText = responseData;
+          } else if (responseData && typeof responseData === 'object') {
+            responseText = responseData.response || 
+                         responseData.message || 
+                         responseData.text ||
+                         JSON.stringify(responseData);
+          } else {
+            responseText = String(responseData);
+          }
+          console.log('Extracted response text:', responseText);
+          if (!responseText) {
+            console.error('Failed to extract response text from:', responseData);
+            throw new Error('Empty response text from server');
+          }
+          // Handle potential HTML/markdown in response
+          if (typeof responseText === 'string' && (responseText.includes('<') || responseText.includes('`'))) {
+            responseText = responseText
+              .replace(/<[^>]*>/g, '')
+              .replace(/```[\s\S]*?```/g, '')
+              .replace(/`([^`]*)`/g, '$1')
+              .replace(/\n\s*\n/g, '\n')
+              .trim();
+          }
+          const assistantMessage: Message = {
+            id: Date.now().toString(),
+            text: responseText || 'I apologize, but I encountered an issue processing your request.',
+            sender: 'assistant',
+            timestamp: new Date(),
+            mood: responseData.mood || 'neutral',
+            model: responseData.model,
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+          if (responseData.quickReplies) {
+            setQuickReplies(responseData.quickReplies);
+          }
+          if (responseData.mood) {
+            setMood(responseData.mood);
+          }
+          break; // If successful, exit the retry loop
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Attempt ${attempts + 1} failed:`, error);
+          attempts++;
+          if (attempts === maxAttempts) {
+            console.error('All attempts failed');
+            throw new Error(`Failed after ${maxAttempts} attempts: ${lastError.message}`);
+          }
+          const delay = 1000 * attempts;
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);

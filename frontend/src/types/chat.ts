@@ -24,6 +24,7 @@ export interface Message {
   timestamp: Date;
   mood?: MoodType;
   isError?: boolean;
+  model?: string; // Added to track which model generated the response
 }
 
 export interface QuickReply {

@@ -6,7 +6,7 @@ import throttle from 'lodash.throttle';
 
 const ChanakyaHomepage = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, handleLogout } = useAuth();
   const [activeFeature, setActiveFeature] = useState(0);
   const featuresRef = useRef(null);
 
@@ -168,7 +168,7 @@ const ChanakyaHomepage = () => {
           <div className="flex items-center space-x-4">
             {user ? (
           <button
-            onClick={() => { logout(); navigate('/'); }}
+            onClick={() => { handleLogout(); navigate('/'); }}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold text-md shadow transition transform hover:scale-105"
           >
             Logout
@@ -317,7 +317,7 @@ const ChanakyaHomepage = () => {
       </main>
 
       {/* Custom Styles */}
-      <style jsx>{`
+      <style>{`
         .backdrop-blur-sm {
           backdrop-filter: blur(8px);
         }

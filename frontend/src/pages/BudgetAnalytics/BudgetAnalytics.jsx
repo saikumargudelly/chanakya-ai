@@ -5,6 +5,9 @@ import { Line } from 'react-chartjs-2'; // Pie import removed as it's not used
 import 'chart.js/auto';
 import { fetchMoodSessions } from '../../services/mood/moodSession';
 import { useAuth } from '../../context/AuthContext';
+import Sidebar from '../../components/layout/Sidebar';
+import TopNav from '../../components/layout/TopNav';
+import Profile from '../../components/common/Profile';
 
 const PERIODS = [
   { label: 'Last 3 Months', value: '3m' },
@@ -218,78 +221,88 @@ useEffect(() => {
   const useSample = !lineData || lineData.labels.length === 0;
   const displayLineData = useSample ? sampleLineData : lineData;
 
+  const [showProfile, setShowProfile] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700 max-w-6xl mx-auto mt-8 flex flex-col md:flex-row gap-8 text-gray-900 dark:text-white">
-      {/* Left: Analytics Section */}
-      <div className="flex-1 min-w-[320px]">
-        <h2 className="text-2xl font-bold mb-6 text-blue-700 dark:text-blue-300">Budget Analytics</h2>
-        <div className="mb-6 flex gap-4 items-center">
-          <label className="font-semibold text-gray-800 dark:text-gray-100">Period:</label>
-          <select
-            className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors text-gray-900 dark:text-white"
-            value={period}
-            onChange={e => setPeriod(e.target.value)}
-          >
-            {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
-        {loading ? (
-          <div className="text-center text-lg text-blue-500 dark:text-blue-300">Loading analytics...</div>
-        ) : (
-          <>
-            <div>
-              <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">Trends Over Time</h3>
-              {filtered.length > 0 || useSample ? (
-                <Line data={displayLineData} />
-              ) : (
-                <div className="text-gray-500 dark:text-gray-400 italic text-center py-8">No historical budget data available for this period.</div>
-              )}
-            </div>
-            {/* Pie Chart for Current Month Budget */}
-            {hasPieData && (
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">Current Month Budget Breakdown</h3>
-                {/* <Pie data={pieData} /> */}
-                <div className="text-gray-500 dark:text-gray-400 italic text-center py-8">Pie chart component goes here</div>
+    <div className="flex min-h-screen bg-gray-950">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-h-screen ml-64">
+        <TopNav setShowProfile={setShowProfile} />
+        {showProfile && <Profile onClose={() => setShowProfile(false)} />}
+        <main className="flex-1 p-6 md:p-10 bg-gray-950">
+          <div className="bg-gray-900 text-white rounded-2xl shadow-lg p-8 border border-gray-800 max-w-6xl mx-auto flex flex-col md:flex-row gap-8">
+            {/* Left: Analytics Section */}
+            <div className="flex-1 min-w-[320px]">
+              <h2 className="text-2xl font-bold mb-6 text-blue-400">Budget Analytics</h2>
+              <div className="mb-6 flex gap-4 items-center">
+                <label className="font-semibold text-gray-200">Period:</label>
+                <select
+                  className="px-3 py-2 rounded border border-gray-700 bg-gray-800 focus:ring-2 focus:ring-blue-400 transition-colors text-white"
+                  value={period}
+                  onChange={e => setPeriod(e.target.value)}
+                >
+                  {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
               </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Right: Mood Trends Section */}
-      <div className="flex-1 min-w-[320px] border-t md:border-t-0 md:border-l border-gray-200 dark:border-gray-700 pt-8 md:pt-0 md:pl-8">
-        <h2 className="text-2xl font-bold mb-6 text-yellow-600 dark:text-yellow-400">Mood Trends</h2>
-        <div className="mb-6 flex gap-4 items-center">
-          <label className="font-semibold text-gray-800 dark:text-gray-100">Period:</label>
-          <select
-            className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 transition-colors text-gray-900 dark:text-white"
-            value={moodPeriod}
-            onChange={e => setMoodPeriod(e.target.value)}
-          >
-            <option value="7d">Last 7 Days</option>
-            <option value="2w">Last 2 Weeks</option>
-            <option value="1m">Last Month</option>
-            <option value="3m">Last 3 Months</option>
-            <option value="6m">Last 6 Months</option>
-            <option value="1y">Last Year</option>
-          </select>
-        </div>
-        {moodLoading ? (
-           <div className="text-center text-lg text-yellow-600 dark:text-yellow-400">Loading mood trends...</div>
-        ) : (
-          <>
-            <div>
-              <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">PERMA Pillars Over Time</h3>
-              {moodTrendData.labels.length > 0 ? (
-                 <Line data={moodTrendData} />
+              {loading ? (
+                <div className="text-center text-lg text-blue-400">Loading analytics...</div>
               ) : (
-                 <div className="text-gray-500 dark:text-gray-400 italic text-center py-8">No mood data available for this period.</div>
+                <>
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-gray-200">Trends Over Time</h3>
+                    {filtered.length > 0 || useSample ? (
+                      <Line data={displayLineData} />
+                    ) : (
+                      <div className="text-gray-400 italic text-center py-8">No historical budget data available for this period.</div>
+                    )}
+                  </div>
+                  {/* Pie Chart for Current Month Budget */}
+                  {hasPieData && (
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold mb-3 text-gray-200">Current Month Budget Breakdown</h3>
+                      {/* <Pie data={pieData} /> */}
+                      <div className="text-gray-400 italic text-center py-8">Pie chart component goes here</div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
-          </>
-        )}
+
+            {/* Right: Mood Trends Section */}
+            <div className="flex-1 min-w-[320px] border-t md:border-t-0 md:border-l border-gray-800 pt-8 md:pt-0 md:pl-8">
+              <h2 className="text-2xl font-bold mb-6 text-yellow-300">Mood Trends</h2>
+              <div className="mb-6 flex gap-4 items-center">
+                <label className="font-semibold text-gray-200">Period:</label>
+                <select
+                  className="px-3 py-2 rounded border border-gray-700 bg-gray-800 focus:ring-2 focus:ring-yellow-300 transition-colors text-white"
+                  value={moodPeriod}
+                  onChange={e => setMoodPeriod(e.target.value)}
+                >
+                  <option value="7d">Last 7 Days</option>
+                  <option value="2w">Last 2 Weeks</option>
+                  <option value="1m">Last Month</option>
+                  <option value="3m">Last 3 Months</option>
+                  <option value="6m">Last 6 Months</option>
+                  <option value="1y">Last Year</option>
+                </select>
+              </div>
+              {moodLoading ? (
+                 <div className="text-center text-lg text-yellow-300">Loading mood trends...</div>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-gray-200">PERMA Pillars Over Time</h3>
+                    {moodTrendData.labels.length > 0 ? (
+                       <Line data={moodTrendData} />
+                    ) : (
+                       <div className="text-gray-400 italic text-center py-8">No mood data available for this period.</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );

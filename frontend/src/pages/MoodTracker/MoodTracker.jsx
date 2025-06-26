@@ -22,9 +22,17 @@ import {
 import { 
   saveMoodSession, 
   fetchRecentMoodSessions,
-  getPermaTipConversation 
+  getPermaTipConversation
 } from '../../services/mood/permaService';
+import { getMoodFromPermaScores } from '../../services/mood/moodSession';
 import { checkBackendHealth } from '../../services/api/healthService';
+import { useQuery } from '@tanstack/react-query';
+import VirtualList from '../../components/common/VirtualList';
+import { withMemoization } from '../../utils/withMemoization';
+import OptimizedImage from '../../components/common/OptimizedImage';
+import Sidebar from '../../components/layout/Sidebar';
+import TopNav from '../../components/layout/TopNav';
+import Profile from '../../components/common/Profile';
 
 // Helper functions
 const getWeakestPillar = (scores) => {
@@ -58,6 +66,8 @@ const MoodTracker = () => {
   const [userMessage, setUserMessage] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [timeRange, setTimeRange] = useState('week');
+  const [showProfile, setShowProfile] = useState(false);
   
   // Get user data
   const { user } = useAuth();
@@ -277,7 +287,7 @@ const MoodTracker = () => {
   // Handle form submission
   const testBackendConnection = async () => {
     try {
-      await fetch('/api/healthcheck');
+      await fetch('/health');
       return true;
     } catch (error) {
       console.error('Backend connection test failed:', error);
@@ -362,7 +372,20 @@ const MoodTracker = () => {
     const avgScore = analysis.overallScore;
     
     try {
-      
+      // Log all questions and answers for debugging
+      console.log('All questions:', todaysQuestions);
+      console.log('All formattedAnswers:', formattedAnswers);
+
+      // Calculate overall PERMA score
+      const permaScoreValues = Object.values(permaScoresForBackend);
+      const overallScore = permaScoreValues.length > 0
+        ? permaScoreValues.reduce((sum, val) => sum + val, 0) / permaScoreValues.length
+        : 0;
+
+      // Calculate mood from PERMA scores using shared utility
+      const mood = getMoodFromPermaScores(permaScoresForBackend);
+      console.log('Derived mood from PERMA score:', { permaScoresForBackend, mood });
+
       // Prepare answers for submission
       const answerData = todaysQuestions.map((q, i) => ({
         question: q.question,
@@ -370,11 +393,12 @@ const MoodTracker = () => {
         score: formattedAnswers[i],
         answer: q.options.find(o => o.value === formattedAnswers[i])?.label || ''
       }));
-      
+
       // Save to backend if user is logged in
       if (user_id) {
         const sessionData = {
           user_id,
+          mood,
           perma_scores: permaScoresForBackend,
           answers: answerData,
           summary: `Overall wellbeing: ${avgScore.toFixed(1)}/10`,
@@ -500,11 +524,12 @@ const MoodTracker = () => {
   // Render the analysis results with enhanced UI
   const renderAnalysis = () => {
     if (!permaScores) return null;
-    
-    const averageScore = calculateAverageScore(permaScores);
-    const strongestPillar = getStrongestPillar(permaScores);
-    const weakestPillar = getWeakestPillar(permaScores);
-    const scoreEntries = Object.entries(permaScores);
+    // Use avgScores if present, else fallback to permaScores
+    const scores = permaScores.avgScores || permaScores;
+    const averageScore = calculateAverageScore(scores);
+    const strongestPillar = getStrongestPillar(scores);
+    const weakestPillar = getWeakestPillar(scores);
+    const scoreEntries = Object.entries(scores);
     
     return (
       <motion.div 
@@ -604,7 +629,7 @@ const MoodTracker = () => {
                 Chat with our wellbeing assistant for personalized tips and guidance.
               </p>
             </div>
-            <button
+            <motion.button
               onClick={() => setShowChat(true)}
               className="mt-4 md:mt-0 inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg"
               whileHover={{ scale: 1.03 }}
@@ -612,7 +637,7 @@ const MoodTracker = () => {
             >
               <FiMessageSquare className="mr-2" />
               Chat with Wellbeing Assistant
-            </button>
+            </motion.button>
           </div>
         </motion.div>
       </motion.div>
@@ -746,7 +771,7 @@ const MoodTracker = () => {
         </MotionAnimatePresence>
         
         <div className="flex justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-          <button
+          <motion.button
             type="button"
             onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
             disabled={currentQuestionIndex === 0}
@@ -757,10 +782,10 @@ const MoodTracker = () => {
             }`}
           >
             <FiChevronLeft className="mr-1" /> Previous
-          </button>
+          </motion.button>
           
           {isLastQuestion ? (
-            <button
+            <motion.button
               type="button"
               onClick={handleSubmit}
               disabled={isLoading || answers.some(a => a === null)}
@@ -774,16 +799,16 @@ const MoodTracker = () => {
               ) : (
                 'See Results'
               )}
-            </button>
+            </motion.button>
           ) : (
-            <button
+            <motion.button
               type="button"
               onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
               disabled={answers[currentQuestionIndex] === null || answers[currentQuestionIndex] === undefined}
               className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               Next <FiChevronRight className="ml-1" />
-            </button>
+            </motion.button>
           )}
         </div>
       </div>
@@ -939,55 +964,62 @@ const MoodTracker = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8 w-full">
-      <div className="w-full max-w-6xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="space-y-6 w-full"
-        >
-          <div className="w-full">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Wellbeing Check-in
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Answer a few questions to track your PERMA wellbeing dimensions
-            </p>
-          </div>
-          
-          {error && renderError()}
-          
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 w-full">
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <FiRefreshCw className="animate-spin text-indigo-600 dark:text-indigo-400 text-2xl" />
+    <div className="flex min-h-screen bg-gray-950">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-h-screen ml-64">
+        <TopNav setShowProfile={setShowProfile} />
+        {showProfile && <Profile onClose={() => setShowProfile(false)} />}
+        <main className="flex-1 p-6 md:p-10 bg-gray-950">
+          <div className="w-full max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-6 w-full"
+            >
+              <div className="w-full">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                  Wellbeing Check-in
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Answer a few questions to track your PERMA wellbeing dimensions
+                </p>
               </div>
-            ) : showAnalysis ? (
-              <div className="space-y-6">
-                {renderAnalysis()}
-                {renderChat()}
-                <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => {
-                      setShowAnalysis(false);
-                      setCurrentQuestionIndex(0);
-                      setAnswers(Array(todaysQuestions.length).fill(null));
-                      setShowChat(false);
-                    }}
-                    className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center text-sm font-medium"
-                  >
-                    <FiRefreshCw className="mr-2" /> Start a new check-in
-                  </button>
-                </div>
+              
+              {error && renderError()}
+              
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 w-full">
+                {isLoading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <FiRefreshCw className="animate-spin text-indigo-600 dark:text-indigo-400 text-2xl" />
+                  </div>
+                ) : showAnalysis ? (
+                  <div className="space-y-6">
+                    {renderAnalysis()}
+                    {renderChat()}
+                    <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <button
+                        onClick={() => {
+                          setShowAnalysis(false);
+                          setCurrentQuestionIndex(0);
+                          setAnswers(Array(todaysQuestions.length).fill(null));
+                          setShowChat(false);
+                        }}
+                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center text-sm font-medium"
+                      >
+                        <FiRefreshCw className="mr-2" /> Start a new check-in
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit}>
+                    {renderQuestion()}
+                  </form>
+                )}
               </div>
-            ) : (
-              <form onSubmit={handleSubmit}>
-                {renderQuestion()}
-              </form>
-            )}
+            </motion.div>
           </div>
-        </motion.div>
+        </main>
       </div>
     </div>
   );
