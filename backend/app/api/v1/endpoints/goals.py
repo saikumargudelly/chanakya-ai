@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.db.session import get_db
 from app.models.goal import Goal
@@ -14,9 +14,15 @@ router = APIRouter()
 class GoalCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    target_amount: float
+    target_amount: Optional[float] = None
     current_amount: float = 0.0
     deadline: Optional[datetime] = None
+    milestone_frequency: Optional[str] = None
+    milestones: Optional[list] = Field(default_factory=list)
+    reminders: Optional[list] = Field(default_factory=list)
+    vision: Optional[str] = None
+    mood_aware: Optional[bool] = None
+    type: Optional[str] = None
 
 class GoalUpdate(BaseModel):
     title: Optional[str] = None
@@ -24,16 +30,27 @@ class GoalUpdate(BaseModel):
     target_amount: Optional[float] = None
     current_amount: Optional[float] = None
     deadline: Optional[datetime] = None
+    milestone_frequency: Optional[str] = None
+    milestones: Optional[list] = Field(default_factory=list)
+    reminders: Optional[list] = Field(default_factory=list)
+    vision: Optional[str] = None
+    mood_aware: Optional[bool] = None
+    type: Optional[str] = None
 
 class GoalResponse(BaseModel):
     id: int
     user_id: int
     title: str
     description: Optional[str]
-    target_amount: float
+    target_amount: Optional[float] = None
     current_amount: float
     deadline: Optional[datetime]
     created_at: datetime
+    milestone_frequency: Optional[str] = None
+    milestones: Optional[list] = None
+    reminders: Optional[list] = None
+    vision: Optional[str] = None
+    mood_aware: Optional[bool] = None
 
     class Config:
         from_attributes = True
@@ -54,13 +71,20 @@ async def create_goal(
     db: Session = Depends(get_db)
 ):
     """Create a new goal for the current user"""
+    if (goal_data.type == 'Financial') and (goal_data.target_amount is None):
+        raise HTTPException(status_code=422, detail="target_amount is required for Financial goals.")
     goal = Goal(
         user_id=current_user.id,
         title=goal_data.title,
         description=goal_data.description,
         target_amount=goal_data.target_amount,
         current_amount=goal_data.current_amount,
-        deadline=goal_data.deadline
+        deadline=goal_data.deadline,
+        milestone_frequency=goal_data.milestone_frequency,
+        milestones=goal_data.milestones,
+        reminders=goal_data.reminders,
+        vision=goal_data.vision,
+        mood_aware=goal_data.mood_aware
     )
     db.add(goal)
     db.commit()

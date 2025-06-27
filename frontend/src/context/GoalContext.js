@@ -20,7 +20,10 @@ export const GoalProvider = ({ children }) => {
           Authorization: `Bearer ${token}`,
         },
       });
-      setGoals(Array.isArray(res.data.data) ? res.data.data : []);
+      console.log('[GoalContext] Raw API response:', res);
+      const goalsArray = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+      console.log('[GoalContext] Setting goals array:', goalsArray);
+      setGoals(goalsArray);
     } catch (e) {
       if (e.response?.status === 401) logout();
     } finally {

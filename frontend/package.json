@@ -9,6 +9,7 @@
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@hookform/resolvers": "^5.1.1",
+    "@lottiefiles/react-lottie-player": "^3.6.0",
     "@nivo/core": "^0.88.0",
     "@nivo/line": "^0.88.0",
     "@nivo/pie": "^0.88.0",

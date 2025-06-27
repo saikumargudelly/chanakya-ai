@@ -13,7 +13,16 @@ export const goalService = {
 
   addGoal: async (userId, goal) => {
     try {
-      return await apiService.post('/goals/', goal);
+      // Map frontend camelCase to backend snake_case if needed
+      const payload = {
+        ...goal,
+        milestone_frequency: goal.milestoneFrequency,
+        milestones: goal.milestones,
+        reminders: goal.reminders,
+        vision: goal.vision,
+        mood_aware: goal.moodAware,
+      };
+      return await apiService.post('/goals/', payload);
     } catch (error) {
       console.error('Error adding goal:', error);
       throw error;
@@ -22,7 +31,15 @@ export const goalService = {
 
   updateGoal: async (userId, goal) => {
     try {
-      return await apiService.put(`/goals/${goal.id}/`, goal);
+      const payload = {
+        ...goal,
+        milestone_frequency: goal.milestoneFrequency,
+        milestones: goal.milestones,
+        reminders: goal.reminders,
+        vision: goal.vision,
+        mood_aware: goal.moodAware,
+      };
+      return await apiService.put(`/goals/${goal.id}/`, payload);
     } catch (error) {
       console.error('Error updating goal:', error);
       throw error;
