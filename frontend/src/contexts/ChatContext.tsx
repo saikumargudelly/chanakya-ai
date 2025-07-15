@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
 import { Message, MoodType, ChatConfig, UserContext as UserContextType, ChatContextType } from '../types/chat';
-import { useAuth } from '../components/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 interface ChatApiResponse {
@@ -85,7 +85,16 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     try {
       console.log('Sending user gender to backend:', user?.gender);
-      const response: { data: ChatApiResponse } = await api.post('/chat', {
+      console.log('Sending chat request with data:', {
+        user_id: user?.id,
+        message: content,
+        income: null,
+        expenses: {},
+        mood: mood,
+        gender: user?.gender
+      });
+      
+      const response = await api.post('/chat', {
         user_id: user?.id,
         message: content,
         income: null,
@@ -94,7 +103,29 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         gender: user?.gender
       });
 
-      const assistantResponseText = response.data.response || 'Error: Could not get a response.';
+      console.log('Raw API response:', response);
+      
+      // Handle different response formats
+      let assistantResponseText: string;
+      
+      if (typeof response === 'string') {
+        assistantResponseText = response;
+      } else if (response && typeof response === 'object') {
+        const responseObj = response as Record<string, any>;
+        if ('response' in responseObj && typeof responseObj.response === 'string') {
+          assistantResponseText = responseObj.response;
+        } else if ('data' in responseObj) {
+          // Handle case where response is an Axios response object
+          const data = responseObj.data;
+          assistantResponseText = (typeof data === 'object' && data?.response) || 
+                                JSON.stringify(data) || 
+                                'Error: Empty response from server';
+        } else {
+          assistantResponseText = JSON.stringify(responseObj) || 'Error: Invalid response format';
+        }
+      } else {
+        assistantResponseText = 'Error: Could not get a response.';
+      }
 
       const assistantMessage: Message = {
         id: Date.now().toString() + '_bot',

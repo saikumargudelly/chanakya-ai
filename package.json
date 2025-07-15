@@ -1,10 +1,20 @@
 {
   "devDependencies": {
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "@vitejs/plugin-react": "^4.5.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",
-    "tailwindcss": "^3.4.3"
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.77.0"
+    "@hookform/resolvers": "^5.1.1",
+    "@tanstack/react-query": "^5.77.0",
+    "lodash.throttle": "^4.1.1",
+    "react-hook-form": "^7.58.1",
+    "react-nice-avatar": "^1.5.0",
+    "yup": "^1.6.1"
   }
 }

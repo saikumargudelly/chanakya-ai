@@ -1,105 +1,48 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { goalService } from '../services/goalService';
-import { useAuth } from '../components/AuthContext.jsx';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import api from '../services/api/api';
+import { useAuth } from '../context/AuthContext';
 
 const GoalContext = createContext();
 
-export function useGoals() {
-  return useContext(GoalContext);
-}
-
-export function GoalProvider({ children }) {
-  const { user } = useAuth();
+export const GoalProvider = ({ children }) => {
+  const { user, token, logout } = useAuth();
   const [goals, setGoals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Debug: Log user object and its properties
-  useEffect(() => {
-    console.log('GoalContext - Current user:', user);
-    console.log('GoalContext - User ID:', user?.userId || user?.id);
-  }, [user]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const loadGoals = useCallback(async () => {
-    const userId = user?.userId || user?.user_id || user?.id;
-    console.log('loadGoals - User ID:', userId, 'from user object:', user);
-    if (!userId) {
-      console.log('loadGoals - No user ID found, setting empty goals');
-      setGoals([]);
-      setLoading(false);
-      return;
-    }
+  // Fetch goals only when user and token are available
+  const fetchGoals = async () => {
+    if (!user || !token) return;
+    setIsLoading(true);
     try {
-      const userGoals = await goalService.getGoals(userId);
-      setGoals(Array.isArray(userGoals) ? userGoals : []);
-    } catch (error) {
-      console.error('Error loading goals:', error);
-      setGoals([]);
+      // Pass token explicitly in case api instance doesn't pick it up
+      const res = await api.get('/goals/', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log('[GoalContext] Raw API response:', res);
+      const goalsArray = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+      console.log('[GoalContext] Setting goals array:', goalsArray);
+      setGoals(goalsArray);
+    } catch (e) {
+      if (e.response?.status === 401) logout();
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [user?.userId, user?.id]);
+  };
 
   useEffect(() => {
-    loadGoals();
-  }, [loadGoals]);
-
-  const addGoal = async (goal) => {
-    console.log('addGoal - User object:', user);
-    const userId = user?.userId || user?.user_id || user?.id;
-    console.log('addGoal - User ID:', userId, 'from user object:', user);
-    if (!userId) {
-      console.error('addGoal - No user ID found in user object:', user);
-      throw new Error('User not authenticated. Please log in again.');
+    if (user && token) {
+      fetchGoals();
     }
-    try {
-      const newGoal = await goalService.addGoal(userId, goal);
-      await loadGoals();
-      return newGoal;
-    } catch (error) {
-      console.error('Error adding goal:', error);
-      throw error;
-    }
-  };
-
-  const updateGoal = async (goal) => {
-    const userId = user?.userId || user?.user_id || user?.id;
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
-    try {
-      const updatedGoal = await goalService.updateGoal(userId, goal);
-      await loadGoals();
-      return updatedGoal;
-    } catch (error) {
-      console.error('Error updating goal:', error);
-      throw error;
-    }
-  };
-
-  const deleteGoal = async (goalId) => {
-    const userId = user?.userId || user?.user_id || user?.id;
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
-    try {
-      await goalService.deleteGoal(userId, goalId);
-      await loadGoals();
-    } catch (error) {
-      console.error('Error deleting goal:', error);
-      throw error;
-    }
-  };
+    // Only run when user or token changes
+  }, [user, token]);
 
   return (
-    <GoalContext.Provider value={{ 
-      goals, 
-      addGoal, 
-      updateGoal, 
-      deleteGoal, 
-      loading,
-      refreshGoals: loadGoals
-    }}>
+    <GoalContext.Provider value={{ goals, isLoading, fetchGoals }}>
       {children}
     </GoalContext.Provider>
   );
-}
+};
+
+export const useGoals = () => useContext(GoalContext);
