@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, date, time, timedelta
 from dateutil import parser
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+import logging
 
 from app.models.mood_session import MoodSession
 from app.db.session import get_db
@@ -37,9 +39,8 @@ async def save_mood_session(
     current_user: TokenData = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    logger = logging.getLogger(__name__)
     try:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f"Starting to save mood session for user {current_user.id}")
         logger.debug(f"Request data: {mood_session.dict()}")
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -91,15 +92,14 @@ async def save_mood_session(
         logger.error(f"HTTPException in save_mood_session: {str(http_exc.detail)}", exc_info=True)
         db.rollback()
         raise http_exc
-    except Exception as e:
-        import traceback
-        error_msg = f"Error saving mood session: {str(e)}\n{traceback.format_exc()}"
-        logger.error(error_msg)
+    except SQLAlchemyError as e:
+        logger.error(f"Database error saving mood session: {str(e)}", exc_info=True)
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=error_msg
-        )
+        raise HTTPException(status_code=500, detail="Internal server error due to database issue.")
+    except Exception as e:
+        logger.error(f"Unexpected error saving mood session: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error.")
 
 @router.get("", response_model=List[MoodSessionResponse])
 async def get_mood_sessions(
@@ -107,9 +107,10 @@ async def get_mood_sessions(
     current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    logger = logging.getLogger(__name__)
     try:
         user_id = current_user.id if hasattr(current_user, 'id') else current_user
-        print(f"Fetching mood sessions for user_id: {user_id} and date: {date}")
+        logger.debug(f"Fetching mood sessions for user_id: {user_id} and date: {date}")
         query = db.query(MoodSession).filter(MoodSession.user_id == user_id)
         if date:
             start = datetime.combine(date, time.min)
@@ -131,9 +132,12 @@ async def get_mood_sessions(
                     for i, answer in enumerate(session.answers)
                 ]
         return sessions
+    except SQLAlchemyError as e:
+        logger.error(f"Database error fetching mood sessions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error due to database issue.")
     except Exception as e:
-        print(f"Error in get_mood_sessions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error fetching mood sessions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error.")
 
 @router.get("/daily-count", response_model=Dict[str, Any])
 async def get_daily_session_count(

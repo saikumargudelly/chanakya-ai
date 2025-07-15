@@ -2,13 +2,16 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel, Field
+import logging
 
 from app.db.session import get_db
 from app.models.goal import Goal
 from app.models.user import User
 from app.api.v1.endpoints.auth import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class GoalCreate(BaseModel):
@@ -16,26 +19,32 @@ class GoalCreate(BaseModel):
     description: Optional[str] = None
     target_amount: Optional[float] = None
     current_amount: float = 0.0
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
+    type: Optional[str] = None
+    category: Optional[str] = None
     milestone_frequency: Optional[str] = None
     milestones: Optional[list] = Field(default_factory=list)
     reminders: Optional[list] = Field(default_factory=list)
     vision: Optional[str] = None
     mood_aware: Optional[bool] = None
-    type: Optional[str] = None
 
 class GoalUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     target_amount: Optional[float] = None
     current_amount: Optional[float] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     deadline: Optional[datetime] = None
+    type: Optional[str] = None
+    category: Optional[str] = None
     milestone_frequency: Optional[str] = None
     milestones: Optional[list] = Field(default_factory=list)
     reminders: Optional[list] = Field(default_factory=list)
     vision: Optional[str] = None
     mood_aware: Optional[bool] = None
-    type: Optional[str] = None
 
 class GoalResponse(BaseModel):
     id: int
@@ -44,8 +53,12 @@ class GoalResponse(BaseModel):
     description: Optional[str]
     target_amount: Optional[float] = None
     current_amount: float
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     deadline: Optional[datetime]
     created_at: datetime
+    type: Optional[str] = None
+    category: Optional[str] = None
     milestone_frequency: Optional[str] = None
     milestones: Optional[list] = None
     reminders: Optional[list] = None
@@ -61,8 +74,21 @@ async def get_goals(
     db: Session = Depends(get_db)
 ):
     """Get all goals for the current user"""
-    goals = db.query(Goal).filter(Goal.user_id == current_user.id).all()
-    return goals
+    try:
+        goals = db.query(Goal).filter(Goal.user_id == current_user.id).all()
+        return goals
+    except SQLAlchemyError as e:
+        logger.error(f"Database error while fetching goals for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch goals"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching goals for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 @router.post("/", response_model=GoalResponse, status_code=status.HTTP_201_CREATED)
 async def create_goal(
@@ -71,25 +97,47 @@ async def create_goal(
     db: Session = Depends(get_db)
 ):
     """Create a new goal for the current user"""
-    if (goal_data.type == 'Financial') and (goal_data.target_amount is None):
-        raise HTTPException(status_code=422, detail="target_amount is required for Financial goals.")
-    goal = Goal(
-        user_id=current_user.id,
-        title=goal_data.title,
-        description=goal_data.description,
-        target_amount=goal_data.target_amount,
-        current_amount=goal_data.current_amount,
-        deadline=goal_data.deadline,
-        milestone_frequency=goal_data.milestone_frequency,
-        milestones=goal_data.milestones,
-        reminders=goal_data.reminders,
-        vision=goal_data.vision,
-        mood_aware=goal_data.mood_aware
-    )
-    db.add(goal)
-    db.commit()
-    db.refresh(goal)
-    return goal
+    try:
+        logger.info(f"Creating goal for user {current_user.id}")
+        if (goal_data.type == 'Financial') and (goal_data.target_amount is None):
+            raise HTTPException(status_code=422, detail="target_amount is required for Financial goals.")
+        
+        goal = Goal(
+            user_id=current_user.id,
+            title=goal_data.title,
+            description=goal_data.description,
+            target_amount=goal_data.target_amount,
+            current_amount=goal_data.current_amount,
+            start_date=goal_data.start_date,
+            end_date=goal_data.end_date,
+            deadline=goal_data.deadline,
+            type=goal_data.type,
+            category=goal_data.category,
+            milestone_frequency=goal_data.milestone_frequency,
+            milestones=goal_data.milestones,
+            reminders=goal_data.reminders,
+            vision=goal_data.vision,
+            mood_aware=goal_data.mood_aware
+        )
+        db.add(goal)
+        db.commit()
+        db.refresh(goal)
+        logger.info(f"Successfully created goal {goal.id} for user {current_user.id}")
+        return goal
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error while creating goal for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create goal"
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Unexpected error while creating goal for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 @router.get("/{goal_id}", response_model=GoalResponse)
 async def get_goal(
@@ -98,16 +146,29 @@ async def get_goal(
     db: Session = Depends(get_db)
 ):
     """Get a specific goal by ID"""
-    goal = db.query(Goal).filter(
-        Goal.id == goal_id,
-        Goal.user_id == current_user.id
-    ).first()
-    if not goal:
+    try:
+        goal = db.query(Goal).filter(
+            Goal.id == goal_id,
+            Goal.user_id == current_user.id
+        ).first()
+        if not goal:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Goal not found"
+            )
+        return goal
+    except SQLAlchemyError as e:
+        logger.error(f"Database error while fetching goal {goal_id} for user {current_user.id}: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Goal not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch goal"
         )
-    return goal
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching goal {goal_id} for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 @router.put("/{goal_id}", response_model=GoalResponse)
 async def update_goal(
@@ -117,23 +178,40 @@ async def update_goal(
     db: Session = Depends(get_db)
 ):
     """Update a specific goal"""
-    goal = db.query(Goal).filter(
-        Goal.id == goal_id,
-        Goal.user_id == current_user.id
-    ).first()
-    if not goal:
+    try:
+        logger.info(f"Updating goal {goal_id} for user {current_user.id}")
+        goal = db.query(Goal).filter(
+            Goal.id == goal_id,
+            Goal.user_id == current_user.id
+        ).first()
+        if not goal:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Goal not found"
+            )
+        
+        update_data = goal_data.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(goal, field, value)
+        
+        db.commit()
+        db.refresh(goal)
+        logger.info(f"Successfully updated goal {goal_id} for user {current_user.id}")
+        return goal
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error while updating goal {goal_id} for user {current_user.id}: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Goal not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update goal"
         )
-    
-    update_data = goal_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(goal, field, value)
-    
-    db.commit()
-    db.refresh(goal)
-    return goal
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Unexpected error while updating goal {goal_id} for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_goal(
@@ -142,19 +220,36 @@ async def delete_goal(
     db: Session = Depends(get_db)
 ):
     """Delete a specific goal"""
-    goal = db.query(Goal).filter(
-        Goal.id == goal_id,
-        Goal.user_id == current_user.id
-    ).first()
-    if not goal:
+    try:
+        logger.info(f"Deleting goal {goal_id} for user {current_user.id}")
+        goal = db.query(Goal).filter(
+            Goal.id == goal_id,
+            Goal.user_id == current_user.id
+        ).first()
+        if not goal:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Goal not found"
+            )
+        
+        db.delete(goal)
+        db.commit()
+        logger.info(f"Successfully deleted goal {goal_id} for user {current_user.id}")
+        return None
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error while deleting goal {goal_id} for user {current_user.id}: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Goal not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete goal"
         )
-    
-    db.delete(goal)
-    db.commit()
-    return None
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Unexpected error while deleting goal {goal_id} for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 @router.post("/goals/")
 async def create_goal(
