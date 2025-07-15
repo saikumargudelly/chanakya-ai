@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+import logging
 
 from app.models.mood_session import Mood
 from app.db.session import get_db
 from app.api.v1.endpoints.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 class MoodCreate(BaseModel):
     mood: str
@@ -51,7 +55,12 @@ async def log_mood(
             "timestamp": timestamp.isoformat(), 
             "history": mood_history
         }
+except SQLAlchemyError as e:
+        logger.error(f"SQLAlchemy error occurred: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database error")
     except Exception as e:
+        logger.error(f"Unexpected error occurred: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -88,5 +97,9 @@ async def get_mood_history(
             }
             for m in moods
         ]
+except SQLAlchemyError as e:
+        logger.error(f"SQLAlchemy error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database error")
     except Exception as e:
+        logger.error(f"Unexpected error occurred: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 
